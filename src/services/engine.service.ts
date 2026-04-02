@@ -25,42 +25,54 @@ export class EngineService {
 
     while (attempt <= retryCount) {
       if (attempt > 0) {
+        // Exponential backoff: 2s, 4s, 8s...
         const delay = Math.pow(2, attempt) * 1000;
-        logger.info(`Retry attempt ${attempt} for ${url}. Waiting ${delay}ms...`);
+        logger.info(`[Retry ${attempt}/${retryCount}] Waiting ${delay}ms before next attempt for ${url}...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
       try {
         // Strategy 1: Fast HTTP + HTML/Hydration Extraction
-        logger.info(`[Attempt ${attempt}] Extracting via Layer 1 (HTTP)`);
+        logger.info(`[Attempt ${attempt}] Layer 1 (HTTP/Hydration) started...`);
         const httpResult = await this.htmlExtractor.extract(url);
         
         if (httpResult.success && httpResult.data && this.isValidExtraction(httpResult.data)) {
+          logger.info(`[Success] Data extracted via Layer 1 on attempt ${attempt}`);
           return { ...httpResult, layer: 'Layer 1 (HTML/Hydration)' };
+        }
+        
+        // Check for specific "10204" or similar blocking indicators
+        if (httpResult.error?.includes('10204') || httpResult.error?.includes('unavailable')) {
+          logger.warn(`Layer 1 suspected blocking (10204/Unavailable). Proceeding to deeper layers.`);
         } else {
-          logger.warn(`Layer 1 failed: ${httpResult.error}. Moving to Layer 3...`);
+          logger.warn(`Layer 1 failed: ${httpResult.error}`);
         }
 
         // Strategy 2: Reverse Engineered API Extraction (Layer 3)
-        logger.info(`[Attempt ${attempt}] Extracting via Layer 3 (Internal API)`);
+        logger.info(`[Attempt ${attempt}] Layer 3 (Internal API) started...`);
         const apiResult = await this.apiExtractor.extract(url);
         
         if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data)) {
+          logger.info(`[Success] Data extracted via Layer 3 on attempt ${attempt}`);
           return { ...apiResult, layer: 'Layer 3 (Internal API)' };
+        }
+        
+        if (apiResult.error?.includes('10204')) {
+          logger.warn(`Layer 3 returned 10204 (IP/Session Blocked). Moving to Browser Fallback.`);
         } else {
-          logger.warn(`Layer 3 failed: ${apiResult.error}. Moving to Layer 4...`);
+          logger.warn(`Layer 3 failed: ${apiResult.error}`);
         }
 
         // Strategy 3: (Fallback) Headless Browser Automation (Layer 4)
-        logger.info(`[Attempt ${attempt}] Extracting via Layer 4 (Browser Automation)`);
+        logger.info(`[Attempt ${attempt}] Layer 4 (Browser Automation) started...`);
         const browserResult = await this.browserExtractor.extract(url);
         
         if (browserResult.success && browserResult.data && this.isValidExtraction(browserResult.data)) {
-          // If browser succeeds, we likely have a session now (captured during extraction)
+          logger.info(`[Success] Data extracted via Layer 4 on attempt ${attempt}. Session refreshed.`);
           return { ...browserResult, layer: 'Layer 4 (Browser)' };
         } else {
           lastError = browserResult.error || 'Unknown error';
-          logger.warn(`Layer 4 failed: ${lastError}`);
+          logger.error(`Layer 4 failed: ${lastError}`);
         }
       } catch (e: any) {
         lastError = e.message;
@@ -72,7 +84,7 @@ export class EngineService {
 
     return {
       success: false,
-      error: `All layers and retries failed. Final error: ${lastError}`,
+      error: `All layers failed after ${retryCount + 1} attempts. Final error: ${lastError}`,
       layer: 'None'
     };
   }
@@ -81,6 +93,12 @@ export class EngineService {
    * Validates if the extracted data meets the minimum requirements
    */
   private isValidExtraction(data: TiktokExtraction): boolean {
-    return !!(data.video && (data.cover || data.author));
+    if (data.type === 'video') {
+      return !!(data.video && (data.cover || data.author));
+    } else if (data.type === 'image') {
+      return !!(data.images && data.images.length > 0 && (data.cover || data.author));
+    }
+    return false;
   }
 }
+

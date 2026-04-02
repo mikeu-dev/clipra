@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.git
+.gitignore
+debug-browser-fallback.*
+*.log
+.session.json
+Dockerfile
+README.md
