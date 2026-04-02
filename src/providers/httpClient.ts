@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 
 export class HttpClient {
-  private client: AxiosInstance;
+  public client: AxiosInstance;
 
   private userAgents = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
