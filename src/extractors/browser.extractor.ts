@@ -1,6 +1,6 @@
 import { BrowserProvider } from '../providers/browserPool';
 import { SessionProvider } from '../providers/sessionProvider';
-import { ExtractionResult } from '../types';
+import { ExtractionResult, TiktokExtraction } from '../types';
 import logger from '../utils/logger';
 
 export class BrowserExtractor {
@@ -69,13 +69,25 @@ export class BrowserExtractor {
             const detailPath = '__DEFAULT_SCOPE__.webapp.video-detail.itemInfo.itemStruct';
             const item = getVal(parsed, detailPath);
             
-            if (item && item.video) {
-              return {
-                video: item.video.playAddr || item.video.downloadAddr || '',
-                cover: item.video.cover || '',
-                caption: item.desc || '',
-                author: item.author?.uniqueId || item.author?.nickname || ''
-              };
+            if (item) {
+              if (item.video) {
+                return {
+                  type: 'video' as const,
+                  video: item.video.playAddr || item.video.downloadAddr || '',
+                  cover: item.video.cover || '',
+                  caption: item.desc || '',
+                  author: item.author?.uniqueId || item.author?.nickname || ''
+                };
+              }
+              if (item.imagePost && item.imagePost.images) {
+                return {
+                  type: 'image' as const,
+                  images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+                  cover: item.imagePost.cover?.displayAddr || item.video?.cover || '',
+                  caption: item.desc || '',
+                  author: item.author?.uniqueId || item.author?.nickname || ''
+                };
+              }
             }
           } catch (e) { /* ignore */ }
         }
@@ -85,18 +97,31 @@ export class BrowserExtractor {
           const videoId = Object.keys(sigi.ItemModule)[0];
           const item = videoId ? sigi.ItemModule[videoId] : null;
           if (item) {
-            return {
-              video: item.video?.playAddr || item.video?.downloadAddr || '',
-              cover: item.video?.cover || '',
-              caption: item.desc || '',
-              author: item.author || ''
-            };
+            if (item.video) {
+              return {
+                type: 'video' as const,
+                video: item.video?.playAddr || item.video?.downloadAddr || '',
+                cover: item.video?.cover || '',
+                caption: item.desc || '',
+                author: item.author || ''
+              };
+            }
+            if (item.imagePost && item.imagePost.images) {
+              return {
+                type: 'image' as const,
+                images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+                cover: item.imagePost.cover?.displayAddr || item.video?.cover || '',
+                caption: item.desc || '',
+                author: item.author || ''
+              };
+            }
           }
         }
 
         const video = document.querySelector('video');
         if (video && video.src && !video.src.startsWith('blob:')) {
           return {
+            type: 'video' as const,
             video: video.src,
             cover: '',
             caption: document.title,
@@ -105,7 +130,7 @@ export class BrowserExtractor {
         }
 
         return null;
-      });
+      }) as TiktokExtraction | null;
 
       if (!extractedData) {
         logger.warn('Browser extraction failed, capturing debug screenshot...');

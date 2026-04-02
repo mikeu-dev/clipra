@@ -3,6 +3,7 @@ import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { Browser, Page } from 'puppeteer';
 import logger from '../utils/logger';
 import dotenv from 'dotenv';
+import { env } from '../utils/env';
 
 dotenv.config();
 
@@ -14,7 +15,7 @@ export class BrowserProvider {
    * Launch a browser with optimized arguments and Proxy support
    */
   public static async launch(): Promise<Browser> {
-    const proxyUrl = process.env.PROXY_URL;
+    const proxyUrl = env.PROXY_URL;
     const args = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -28,7 +29,7 @@ export class BrowserProvider {
       args.push(`--proxy-server=${proxyUrl}`);
     }
 
-    const isHeadless = process.env.BROWSER_HEADLESS !== 'false';
+    const isHeadless = env.BROWSER_HEADLESS;
 
     return await puppeteer.launch({
       headless: isHeadless,

@@ -1,5 +1,7 @@
 export interface TiktokExtraction {
-  video: string;
+  type: 'video' | 'image';
+  video?: string;
+  images?: string[];
   cover: string;
   caption: string;
   author: string;

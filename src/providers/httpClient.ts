@@ -1,9 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { HttpsProxyAgent } from 'https-proxy-agent';
-import dotenv from 'dotenv';
+import { env } from '../utils/env';
 import logger from '../utils/logger';
-
-dotenv.config();
 
 export class HttpClient {
   public client: AxiosInstance;
@@ -16,7 +14,7 @@ export class HttpClient {
   ];
 
   constructor() {
-    const proxyUrl = process.env.PROXY_URL;
+    const proxyUrl = env.PROXY_URL;
     const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
 
     if (proxyUrl) {

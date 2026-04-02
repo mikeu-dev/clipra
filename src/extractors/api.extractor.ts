@@ -36,9 +36,24 @@ export class ApiExtractor {
       if (awemeList && awemeList.length > 0) {
         const item = awemeList[0];
         
+        // Handle image_post_info if exists (Slideshow)
+        if (item.image_post_info && item.image_post_info.images) {
+          return {
+            success: true,
+            data: {
+              type: 'image',
+              images: item.image_post_info.images.map((img: any) => img.display_image?.url_list[0] || img.owner_watermark_image?.url_list[0] || ''),
+              cover: item.video?.cover?.url_list[0] || '',
+              caption: item.desc || '',
+              author: item.author?.nickname || item.author?.unique_id || ''
+            }
+          };
+        }
+
         return {
           success: true,
           data: {
+            type: 'video',
             video: item.video?.play_addr?.url_list[0] || item.video?.download_addr?.url_list[0] || '',
             cover: item.video?.cover?.url_list[0] || '',
             caption: item.desc || '',

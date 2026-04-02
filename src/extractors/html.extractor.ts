@@ -62,12 +62,27 @@ export class HtmlExtractor {
 
         const item = parsed.ItemModule[videoId];
         
-        return {
-          video: item.video?.playAddr || item.video?.downloadAddr || '',
-          cover: item.video?.cover || '',
-          caption: item.desc || '',
-          author: item.author || ''
-        };
+        // Handle Video
+        if (item.video) {
+          return {
+            type: 'video',
+            video: item.video.playAddr || item.video.downloadAddr || '',
+            cover: item.video.cover || '',
+            caption: item.desc || '',
+            author: item.author || ''
+          };
+        }
+
+        // Handle Image Post (Slideshow)
+        if (item.imagePost && item.imagePost.images) {
+          return {
+            type: 'image',
+            images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+            cover: item.video?.cover || item.imagePost.cover?.displayAddr || '',
+            caption: item.desc || '',
+            author: item.author || ''
+          };
+        }
       }
       return null;
     } catch (e) {
@@ -88,10 +103,25 @@ export class HtmlExtractor {
       const webappVideoDetail = defaultScope['webapp.video-detail'] || {};
       const itemInfo = webappVideoDetail.itemInfo?.itemStruct || {};
       
-      if (itemInfo && itemInfo.video) {
+      if (!itemInfo) return null;
+
+      // Video Logic
+      if (itemInfo.video) {
         return {
+          type: 'video',
           video: itemInfo.video.playAddr || itemInfo.video.downloadAddr || '',
           cover: itemInfo.video.cover || '',
+          caption: itemInfo.desc || '',
+          author: itemInfo.author?.uniqueId || itemInfo.author || ''
+        };
+      }
+
+      // Slideshow Logic
+      if (itemInfo.imagePost && itemInfo.imagePost.images) {
+        return {
+          type: 'image',
+          images: itemInfo.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+          cover: itemInfo.imagePost.cover?.displayAddr || itemInfo.video?.cover || '',
           caption: itemInfo.desc || '',
           author: itemInfo.author?.uniqueId || itemInfo.author || ''
         };
