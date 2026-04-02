@@ -76,7 +76,14 @@ export class BrowserExtractor {
       });
 
       if (!extractedData) {
-        return { success: false, error: 'Could not extract data via browser automation' };
+        logger.warn('Browser extraction failed, capturing debug screenshot...');
+        await page.screenshot({ path: 'debug-browser-fallback.png', fullPage: true });
+        // Simpan juga HTML-nya untuk dianalisis
+        const html = await page.content();
+        const fs = require('fs');
+        fs.writeFileSync('debug-browser-fallback.html', html);
+
+        return { success: false, error: 'Could not extract data via browser automation. See debug files (png/html).' };
       }
 
       return { success: true, data: extractedData };
