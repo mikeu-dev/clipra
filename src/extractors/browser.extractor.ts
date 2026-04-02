@@ -17,20 +17,74 @@ export class BrowserExtractor {
       // Optimize page load
       await BrowserProvider.optimizePage(page);
 
-      // Navigate
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+      // 1. Navigate with higher timeout and better wait condition
+      try {
+        await page.goto(url, { waitUntil: 'networkidle0', timeout: 40000 });
+      } catch (e) {
+        logger.warn('Initial navigation timeout/error, retrying with networkidle2...');
+        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
+      }
 
-      // Capture session for potential reuse in Layer 1 & 3
+      // Add a small human-like delay and scroll
+      await new Promise(r => setTimeout(r, 2000 + Math.random() * 3000));
+      await page.evaluate(() => window.scrollBy(0, 300));
+      await new Promise(r => setTimeout(r, 1000));
+
+      // 2. Capture session
       await SessionProvider.captureFromPage(page);
 
-      // Run JS payload in browser context to extract hydration data
+      // 3. Check for "Unavailable" or "Captcha" state
+      const pageStatus = await page.evaluate(() => {
+        const text = document.body.innerText;
+        if (text.includes('Video currently unavailable') || text.includes('Video ini tidak tersedia')) {
+          return 'UNAVAILABLE';
+        }
+        if (text.includes('Verify to continue') || document.querySelector('#captcha_container')) {
+          return 'CAPTCHA';
+        }
+        return 'OK';
+      });
+
+      if (pageStatus !== 'OK') {
+        return { success: false, error: `TikTok blocked access with status: ${pageStatus}` };
+      }
+
+      // 4. Wait for content
+      try {
+        await page.waitForSelector('video', { timeout: 15000 });
+      } catch (e) {
+        logger.warn('Video selector timeout, attempting hydration anyway...');
+      }
+
+      // 5. Extract Data
       const extractedData = await page.evaluate(() => {
-        // Option 1: SIGI_STATE
-        const sigiState = (window as any)['SIGI_STATE'];
-        if (sigiState && sigiState.ItemModule) {
-          const videoId = Object.keys(sigiState.ItemModule)[0];
-          if (videoId) {
-            const item = sigiState.ItemModule[videoId];
+        const getVal = (obj: any, path: string) => {
+          return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+        };
+
+        const universalDataEl = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
+        if (universalDataEl && universalDataEl.textContent) {
+          try {
+            const parsed = JSON.parse(universalDataEl.textContent);
+            const detailPath = '__DEFAULT_SCOPE__.webapp.video-detail.itemInfo.itemStruct';
+            const item = getVal(parsed, detailPath);
+            
+            if (item && item.video) {
+              return {
+                video: item.video.playAddr || item.video.downloadAddr || '',
+                cover: item.video.cover || '',
+                caption: item.desc || '',
+                author: item.author?.uniqueId || item.author?.nickname || ''
+              };
+            }
+          } catch (e) { /* ignore */ }
+        }
+
+        const sigi = (window as any)['SIGI_STATE'];
+        if (sigi && sigi.ItemModule) {
+          const videoId = Object.keys(sigi.ItemModule)[0];
+          const item = videoId ? sigi.ItemModule[videoId] : null;
+          if (item) {
             return {
               video: item.video?.playAddr || item.video?.downloadAddr || '',
               cover: item.video?.cover || '',
@@ -40,43 +94,17 @@ export class BrowserExtractor {
           }
         }
 
-        // Option 2: UNIVERSAL_DATA
-        const universalDataEl = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
-        if (universalDataEl && universalDataEl.textContent) {
-          try {
-            const parsed = JSON.parse(universalDataEl.textContent);
-            const defaultScope = parsed['__DEFAULT_SCOPE__'] || parsed;
-            const itemInfo = defaultScope['webapp.video-detail']?.itemInfo?.itemStruct;
-            
-            if (itemInfo && itemInfo.video) {
-              return {
-                video: itemInfo.video.playAddr || itemInfo.video.downloadAddr || '',
-                cover: itemInfo.video.cover || '',
-                caption: itemInfo.desc || '',
-                author: itemInfo.author?.uniqueId || itemInfo.author || ''
-              };
-            }
-          } catch (e) {
-            // ignore
-          }
-        }
-
-        // Option 3: Direct DOM Selectors (last resort)
-        const videoEl = document.querySelector('video') as HTMLVideoElement;
-        const videoSrc = videoEl ? videoEl.src : '';
-        const authorEl = document.querySelector('[data-e2e="browser-nickname"]');
-        const captionEl = document.querySelector('[data-e2e="browse-video-desc"]');
-
-        if (videoSrc) {
+        const video = document.querySelector('video');
+        if (video && video.src && !video.src.startsWith('blob:')) {
           return {
-            video: videoSrc,
-            cover: '', 
-            caption: captionEl ? captionEl.textContent || '' : '',
-            author: authorEl ? authorEl.textContent || '' : ''
+            video: video.src,
+            cover: '',
+            caption: document.title,
+            author: 'Unknown'
           };
         }
 
-        return null; // Return null if nothing works
+        return null;
       });
 
       if (!extractedData) {

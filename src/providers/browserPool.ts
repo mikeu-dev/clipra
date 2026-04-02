@@ -20,7 +20,7 @@ export class BrowserProvider {
       '--disable-setuid-sandbox',
       '--disable-web-security',
       '--disable-features=IsolateOrigins,site-per-process',
-      '--window-size=1280,720',
+      '--window-size=1366,768',
     ];
 
     if (proxyUrl) {
@@ -37,10 +37,10 @@ export class BrowserProvider {
   }
 
   /**
-   * Intercept and block unnecessary resources
+   * Intercept and block unnecessary resources with Extreme Stealth
    */
   public static async optimizePage(page: Page) {
-    // If Proxy has authentication, handles it
+    // Proxy Auth
     const proxyUrl = process.env.PROXY_URL;
     if (proxyUrl && proxyUrl.includes('@')) {
       try {
@@ -54,10 +54,35 @@ export class BrowserProvider {
       }
     }
 
+    // Extreme Stealth Viewport
+    await page.setViewport({ width: 1366, height: 768, deviceScaleFactor: 1 });
+    
+    // Set extra headers
+    await page.setExtraHTTPHeaders({
+      'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
+    });
+
+    // In-page stealth
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en', 'id'],
+      });
+      Object.defineProperty(navigator, 'platform', {
+        get: () => 'Win32',
+      });
+      // Mock WebGL
+      const getParameter = WebGLRenderingContext.prototype.getParameter;
+      WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        if (parameter === 37445) return 'Intel Inc.';
+        if (parameter === 37446) return 'Intel(R) Iris(TM) Graphics 6100';
+        return getParameter.apply(this, [parameter]);
+      };
+    });
+
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const resourceType = req.resourceType();
-      if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+      if (['image', 'font', 'media'].includes(resourceType)) {
         req.abort();
       } else {
         req.continue();
@@ -65,7 +90,7 @@ export class BrowserProvider {
     });
 
     await page.setUserAgent(
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     );
   }
 }
