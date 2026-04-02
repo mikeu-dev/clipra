@@ -32,14 +32,31 @@ app.use('/scrape', limiter);
 // Routes
 app.use('/scrape', scrapeRouter);
 
+// Home / Welcome
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).json({ 
+    success: true, 
+    message: 'Welcome to Clipra Scraper Engine API',
+    endpoints: {
+      scrape: '/scrape?url=[TIKTOK_URL]',
+      health: '/health'
+    },
+    version: '1.0.0'
+  });
+});
+
 // Health check
 app.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({ status: 'OK' });
+  res.status(200).json({ 
+    status: 'UP', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Handle 404
 app.use((req: Request, res: Response) => {
-  res.status(404).json({ success: false, error: 'Not Found' });
+  res.status(404).json({ success: false, error: 'Route not found' });
 });
 
 // Global Error Handling Middleware
