@@ -1,4 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import dotenv from 'dotenv';
+import logger from '../utils/logger';
+
+dotenv.config();
 
 export class HttpClient {
   public client: AxiosInstance;
@@ -11,8 +16,17 @@ export class HttpClient {
   ];
 
   constructor() {
+    const proxyUrl = process.env.PROXY_URL;
+    const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+
+    if (proxyUrl) {
+      logger.info('HttpClient initialized with Proxy support.');
+    }
+
     this.client = axios.create({
       timeout: 10000,
+      httpsAgent: httpsAgent,
+      proxy: false, // Disable axios default proxy handling because we use https-proxy-agent
     });
 
     // Request interceptor to randomize user agents and inject realistic headers

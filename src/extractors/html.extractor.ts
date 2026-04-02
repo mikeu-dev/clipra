@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import httpClient from '../providers/httpClient';
+import { SessionProvider } from '../providers/sessionProvider';
 import { ExtractionResult, TiktokExtraction } from '../types';
 import logger from '../utils/logger';
 
@@ -11,7 +12,12 @@ export class HtmlExtractor {
    */
   public async extract(url: string): Promise<ExtractionResult> {
     try {
-      const html = await httpClient.getHtml(url);
+      // Apply session cookies if we have them
+      const headers: any = {};
+      SessionProvider.applyToHeaders(headers);
+
+      const response = await httpClient.client.get(url, { headers });
+      const html = response.data;
       const $ = cheerio.load(html);
 
       // Strategy 1: Look for SIGI_STATE
@@ -51,7 +57,6 @@ export class HtmlExtractor {
       if (match && match[1]) {
         const parsed = JSON.parse(match[1]);
         
-        // Structure varies, assuming VideoModule exists
         const videoId = Object.keys(parsed.ItemModule || {})[0];
         if (!videoId) return null;
 
@@ -79,13 +84,10 @@ export class HtmlExtractor {
       
       const parsed = JSON.parse(scriptContent);
       
-      // Drilling into tiktok's deeply nested universal data
-      // Typical path for viewing a video item:
       const defaultScope = parsed['__DEFAULT_SCOPE__'] || parsed;
       const webappVideoDetail = defaultScope['webapp.video-detail'] || {};
       const itemInfo = webappVideoDetail.itemInfo?.itemStruct || {};
       
-      // If we found it
       if (itemInfo && itemInfo.video) {
         return {
           video: itemInfo.video.playAddr || itemInfo.video.downloadAddr || '',

@@ -1,4 +1,5 @@
 import { BrowserProvider } from '../providers/browserPool';
+import { SessionProvider } from '../providers/sessionProvider';
 import { ExtractionResult } from '../types';
 import logger from '../utils/logger';
 
@@ -17,9 +18,12 @@ export class BrowserExtractor {
       await BrowserProvider.optimizePage(page);
 
       // Navigate
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
 
-      // Run JS payload in browser context to extract hydration data directly from window
+      // Capture session for potential reuse in Layer 1 & 3
+      await SessionProvider.captureFromPage(page);
+
+      // Run JS payload in browser context to extract hydration data
       const extractedData = await page.evaluate(() => {
         // Option 1: SIGI_STATE
         const sigiState = (window as any)['SIGI_STATE'];
@@ -66,7 +70,7 @@ export class BrowserExtractor {
         if (videoSrc) {
           return {
             video: videoSrc,
-            cover: '', // Difficult to get cleanly without API
+            cover: '', 
             caption: captionEl ? captionEl.textContent || '' : '',
             author: authorEl ? authorEl.textContent || '' : ''
           };
@@ -78,7 +82,7 @@ export class BrowserExtractor {
       if (!extractedData) {
         logger.warn('Browser extraction failed, capturing debug screenshot...');
         await page.screenshot({ path: 'debug-browser-fallback.png', fullPage: true });
-        // Simpan juga HTML-nya untuk dianalisis
+        
         const html = await page.content();
         const fs = require('fs');
         fs.writeFileSync('debug-browser-fallback.html', html);

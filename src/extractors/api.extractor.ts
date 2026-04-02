@@ -1,5 +1,6 @@
 import { ExtractionResult } from '../types';
 import httpClient from '../providers/httpClient';
+import { SessionProvider } from '../providers/sessionProvider';
 import { Helpers } from '../utils/helpers';
 import logger from '../utils/logger';
 
@@ -19,14 +20,17 @@ export class ApiExtractor {
         return { success: false, error: 'Could not extract Video ID from URL' };
       }
 
-      // 3. Call TikTok internal feed API
+      // 3. Call TikTok internal feed API with Session Support
       const apiUrl = `https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id=${videoId}`;
       
-      const response = await httpClient.client.get(apiUrl, {
-        headers: {
-          'User-Agent': 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet'
-        }
-      });
+      const headers: any = {
+        'User-Agent': 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet'
+      };
+
+      // Try to inject existing session cookies
+      SessionProvider.applyToHeaders(headers);
+
+      const response = await httpClient.client.get(apiUrl, { headers });
 
       const awemeList = response.data?.aweme_list;
       if (awemeList && awemeList.length > 0) {
