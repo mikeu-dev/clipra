@@ -65,22 +65,28 @@ export class HtmlExtractor {
         // Handle Video
         if (item.video) {
           return {
+            id: videoId,
             type: 'video',
             video: item.video.playAddr || item.video.downloadAddr || '',
+            hdplay: item.video.playAddr || '',
+            wmplay: item.video.downloadAddr || '',
             cover: item.video.cover || '',
             caption: item.desc || '',
-            author: item.author || ''
+            author: item.author || '',
+            music: item.music?.playUrl || item.music?.playAddr || ''
           };
         }
 
         // Handle Image Post (Slideshow)
         if (item.imagePost && item.imagePost.images) {
           return {
+            id: videoId,
             type: 'image',
             images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
             cover: item.video?.cover || item.imagePost.cover?.displayAddr || '',
             caption: item.desc || '',
-            author: item.author || ''
+            author: item.author || '',
+            music: item.music?.playUrl || item.music?.playAddr || ''
           };
         }
       }
@@ -108,22 +114,28 @@ export class HtmlExtractor {
       // Video Logic
       if (itemInfo.video) {
         return {
+          id: itemInfo.id || '',
           type: 'video',
           video: itemInfo.video.playAddr || itemInfo.video.downloadAddr || '',
+          hdplay: itemInfo.video.playAddr || '',
+          wmplay: itemInfo.video.downloadAddr || '',
           cover: itemInfo.video.cover || '',
           caption: itemInfo.desc || '',
-          author: itemInfo.author?.uniqueId || itemInfo.author || ''
+          author: itemInfo.author?.uniqueId || itemInfo.author || '',
+          music: itemInfo.music?.playUrl || ''
         };
       }
 
       // Slideshow Logic
       if (itemInfo.imagePost && itemInfo.imagePost.images) {
         return {
+          id: itemInfo.id || '',
           type: 'image',
           images: itemInfo.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
           cover: itemInfo.imagePost.cover?.displayAddr || itemInfo.video?.cover || '',
           caption: itemInfo.desc || '',
-          author: itemInfo.author?.uniqueId || itemInfo.author || ''
+          author: itemInfo.author?.uniqueId || itemInfo.author || '',
+          music: itemInfo.music?.playUrl || ''
         };
       }
       

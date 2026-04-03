@@ -1,6 +1,10 @@
 export interface TiktokExtraction {
+  id: string;
   type: 'video' | 'image';
   video?: string;
+  hdplay?: string;
+  wmplay?: string;
+  music?: string;
   images?: string[];
   cover: string;
   caption: string;

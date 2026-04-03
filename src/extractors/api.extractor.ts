@@ -41,11 +41,13 @@ export class ApiExtractor {
           return {
             success: true,
             data: {
+              id: item.aweme_id,
               type: 'image',
-              images: item.image_post_info.images.map((img: any) => img.display_image?.url_list[0] || img.owner_watermark_image?.url_list[0] || ''),
-              cover: item.video?.cover?.url_list[0] || '',
+              images: item.image_post_info.images.map((img: any) => img.display_image?.url_list?.[0] || img.owner_watermark_image?.url_list?.[0] || ''),
+              cover: item.video?.cover?.url_list?.[0] || '',
               caption: item.desc || '',
-              author: item.author?.nickname || item.author?.unique_id || ''
+              author: item.author?.nickname || item.author?.unique_id || '',
+              music: item.music?.play_url?.url_list?.[0] || ''
             }
           };
         }
@@ -53,11 +55,15 @@ export class ApiExtractor {
         return {
           success: true,
           data: {
+            id: item.aweme_id,
             type: 'video',
-            video: item.video?.play_addr?.url_list[0] || item.video?.download_addr?.url_list[0] || '',
-            cover: item.video?.cover?.url_list[0] || '',
+            video: item.video?.play_addr?.url_list?.[0] || item.video?.download_addr?.url_list?.[0] || '',
+            hdplay: item.video?.play_addr?.url_list?.[0] || '',
+            wmplay: item.video?.download_addr?.url_list?.[0] || '',
+            cover: item.video?.cover?.url_list?.[0] || '',
             caption: item.desc || '',
-            author: item.author?.nickname || item.author?.unique_id || ''
+            author: item.author?.nickname || item.author?.unique_id || '',
+            music: item.music?.play_url?.url_list?.[0] || ''
           }
         };
       }

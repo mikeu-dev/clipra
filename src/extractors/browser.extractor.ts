@@ -57,7 +57,7 @@ export class BrowserExtractor {
       }
 
       // 5. Extract Data
-      const extractedData = await page.evaluate(() => {
+      let extractedData = await page.evaluate(() => {
         const getVal = (obj: any, path: string) => {
           return path.split('.').reduce((acc, part) => acc && acc[part], obj);
         };
@@ -72,75 +72,129 @@ export class BrowserExtractor {
             if (item) {
               if (item.video) {
                 return {
+                  id: item.id || '',
                   type: 'video' as const,
                   video: item.video.playAddr || item.video.downloadAddr || '',
+                  hdplay: item.video.playAddr || '',
+                  wmplay: item.video.downloadAddr || '',
                   cover: item.video.cover || '',
                   caption: item.desc || '',
-                  author: item.author?.uniqueId || item.author?.nickname || ''
+                  author: item.author?.uniqueId || item.author?.nickname || '',
+                  music: item.music?.playUrl || ''
                 };
               }
               if (item.imagePost && item.imagePost.images) {
                 return {
+                  id: item.id || '',
                   type: 'image' as const,
                   images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
                   cover: item.imagePost.cover?.displayAddr || item.video?.cover || '',
                   caption: item.desc || '',
-                  author: item.author?.uniqueId || item.author?.nickname || ''
+                  author: item.author?.uniqueId || item.author?.nickname || '',
+                  music: item.music?.playUrl || ''
                 };
               }
             }
           } catch (e) { /* ignore */ }
         }
-
-        const sigi = (window as any)['SIGI_STATE'];
-        if (sigi && sigi.ItemModule) {
-          const videoId = Object.keys(sigi.ItemModule)[0];
-          const item = videoId ? sigi.ItemModule[videoId] : null;
-          if (item) {
-            if (item.video) {
-              return {
-                type: 'video' as const,
-                video: item.video?.playAddr || item.video?.downloadAddr || '',
-                cover: item.video?.cover || '',
-                caption: item.desc || '',
-                author: item.author || ''
-              };
-            }
-            if (item.imagePost && item.imagePost.images) {
-              return {
-                type: 'image' as const,
-                images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
-                cover: item.imagePost.cover?.displayAddr || item.video?.cover || '',
-                caption: item.desc || '',
-                author: item.author || ''
-              };
-            }
-          }
-        }
-
-        const video = document.querySelector('video');
-        if (video && video.src && !video.src.startsWith('blob:')) {
-          return {
-            type: 'video' as const,
-            video: video.src,
-            cover: '',
-            caption: document.title,
-            author: 'Unknown'
-          };
-        }
-
         return null;
       }) as TiktokExtraction | null;
 
+      // Fallback: If DOM extraction failed, try Regex on full page content
       if (!extractedData) {
-        logger.warn('Browser extraction failed, capturing debug screenshot...');
+        logger.info('DOM extraction failed, attempting Regex fallback on page content...');
+        const content = await page.content();
+        
+        const rehydrationMatch = content.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application\/json">(.*?)<\/script>/);
+        if (rehydrationMatch && rehydrationMatch[1]) {
+          try {
+            const parsed = JSON.parse(rehydrationMatch[1]);
+            const getVal = (obj: any, path: string) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
+            const item = getVal(parsed, '__DEFAULT_SCOPE__.webapp.video-detail.itemInfo.itemStruct');
+
+            if (item) {
+              logger.info('Regex fallback successful for UNIVERSAL_DATA');
+              if (item.video) {
+                extractedData = {
+                  id: item.id || '',
+                  type: 'video' as const,
+                  video: item.video.playAddr || item.video.downloadAddr || '',
+                  hdplay: item.video.playAddr || '',
+                  wmplay: item.video.downloadAddr || '',
+                  cover: item.video.cover || '',
+                  caption: item.desc || '',
+                  author: item.author?.uniqueId || item.author?.nickname || '',
+                  music: item.music?.playUrl || ''
+                };
+              } else if (item.imagePost && item.imagePost.images) {
+                extractedData = {
+                  id: item.id || '',
+                  type: 'image' as const,
+                  images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+                  cover: item.imagePost.cover?.displayAddr || item.video?.cover || '',
+                  caption: item.desc || '',
+                  author: item.author?.uniqueId || item.author?.nickname || '',
+                  music: item.music?.playUrl || ''
+                };
+              }
+            }
+          } catch (e) {
+            logger.warn('Regex fallback failed to parse or find itemStruct');
+          }
+        }
+      }
+
+      // Last Fallback: SIGI_STATE or direct Video Tag
+      if (!extractedData) {
+        extractedData = await page.evaluate(() => {
+          const sigi = (window as any)['SIGI_STATE'];
+          if (sigi && sigi.ItemModule) {
+            const videoId = Object.keys(sigi.ItemModule)[0];
+            const item = videoId ? sigi.ItemModule[videoId] : null;
+            if (item) {
+              if (item.video) {
+                return {
+                  id: videoId,
+                  type: 'video' as const,
+                  video: item.video?.playAddr || item.video?.downloadAddr || '',
+                  hdplay: item.video?.playAddr || '',
+                  wmplay: item.video?.downloadAddr || '',
+                  cover: item.video?.cover || '',
+                  caption: item.desc || '',
+                  author: item.author || '',
+                  music: item.music?.playUrl || item.music?.playAddr || ''
+                };
+              }
+            }
+          }
+
+          const video = document.querySelector('video');
+          if (video && video.src && !video.src.startsWith('blob:')) {
+            return {
+              id: '',
+              type: 'video' as const,
+              video: video.src,
+              hdplay: video.src,
+              wmplay: '',
+              cover: '',
+              caption: document.title,
+              author: 'Unknown',
+              music: ''
+            };
+          }
+          return null;
+        }) as TiktokExtraction | null;
+      }
+
+      if (!extractedData) {
+        logger.warn('Browser extraction failed even with fallbacks, capturing debug screenshot...');
         await page.screenshot({ path: 'debug-browser-fallback.png', fullPage: true });
         
         const html = await page.content();
         const fs = require('fs');
         fs.writeFileSync('debug-browser-fallback.html', html);
 
-        return { success: false, error: 'Could not extract data via browser automation. See debug files (png/html).' };
+        return { success: false, error: 'Could not extract data via browser automation fallbacks.' };
       }
 
       return { success: true, data: extractedData };
