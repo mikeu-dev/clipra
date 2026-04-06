@@ -98,7 +98,7 @@
 		"drizzle-orm": "^0.45.2",
 		"effect": "^3.19.15",
 		"exceljs": "^4.4.0",
-		"file-type": "^21.3.0",
+		"file-type": "^22.0.0",
 		"filepond": "^4.32.10",
 		"filepond-plugin-file-validate-type": "^1.2.9",
 		"filepond-plugin-image-exif-orientation": "^1.0.11",
