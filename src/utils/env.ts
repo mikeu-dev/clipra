@@ -12,6 +12,8 @@ const envSchema = z.object({
     (val) => val ?? 'true',
     z.string().transform((val) => val !== 'false')
   ).default(true),
+  CACHE_TTL: z.preprocess((val) => val ?? '3600', z.coerce.number().default(3600)),
+  CACHE_CHECK_PERIOD: z.preprocess((val) => val ?? '600', z.coerce.number().default(600)),
 });
 
 const _env = envSchema.safeParse(process.env);

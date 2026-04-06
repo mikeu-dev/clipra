@@ -43,6 +43,7 @@ export class ScrapeController {
         data: result.data,
         metadata: {
           layer: result.layer,
+          is_cached: result.isCached || false,
           timestamp: new Date().toISOString()
         }
       });

@@ -2,6 +2,7 @@ import { StrategyResult, TiktokExtraction } from '../types';
 import { HtmlExtractor } from '../extractors/html.extractor';
 import { ApiExtractor } from '../extractors/api.extractor';
 import { BrowserExtractor } from '../extractors/browser.extractor';
+import { cacheService } from '../utils/cache';
 import logger from '../utils/logger';
 
 export class EngineService {
@@ -20,6 +21,15 @@ export class EngineService {
    * It attempts layer 1 (HTML/Hydration Extraction), layer 3 (API Extraction), and falls back to Layer 4 (Browser Automation).
    */
   public async extract(url: string, retryCount: number = 2): Promise<StrategyResult> {
+    // 1. Check cache first
+    const cacheKey = `tiktok:url:${Buffer.from(url).toString('base64')}`;
+    const cachedResult = cacheService.get<StrategyResult>(cacheKey);
+    
+    if (cachedResult) {
+      logger.info(`[Cache] Hit for ${url}`);
+      return { ...cachedResult, isCached: true };
+    }
+
     let attempt = 0;
     let lastError = '';
 
@@ -38,7 +48,12 @@ export class EngineService {
         
         if (httpResult.success && httpResult.data && this.isValidExtraction(httpResult.data)) {
           logger.info(`[Success] Data extracted via Layer 1 on attempt ${attempt}`);
-          return { ...httpResult, layer: 'Layer 1 (HTML/Hydration)' };
+          const finalResult: StrategyResult = { ...httpResult, layer: 'Layer 1 (HTML/Hydration)' };
+          
+          // Save to cache before returning
+          cacheService.set(cacheKey, finalResult);
+          
+          return finalResult;
         }
         
         // Check for specific "10204" or similar blocking indicators
@@ -54,7 +69,12 @@ export class EngineService {
         
         if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data)) {
           logger.info(`[Success] Data extracted via Layer 3 on attempt ${attempt}`);
-          return { ...apiResult, layer: 'Layer 3 (Internal API)' };
+          const finalResult: StrategyResult = { ...apiResult, layer: 'Layer 3 (Internal API)' };
+          
+          // Save to cache before returning
+          cacheService.set(cacheKey, finalResult);
+          
+          return finalResult;
         }
         
         if (apiResult.error?.includes('10204')) {
@@ -69,7 +89,12 @@ export class EngineService {
         
         if (browserResult.success && browserResult.data && this.isValidExtraction(browserResult.data)) {
           logger.info(`[Success] Data extracted via Layer 4 on attempt ${attempt}. Session refreshed.`);
-          return { ...browserResult, layer: 'Layer 4 (Browser)' };
+          const finalResult: StrategyResult = { ...browserResult, layer: 'Layer 4 (Browser)' };
+          
+          // Save to cache before returning
+          cacheService.set(cacheKey, finalResult);
+          
+          return finalResult;
         } else {
           lastError = browserResult.error || 'Unknown error';
           logger.error(`Layer 4 failed: ${lastError}`);

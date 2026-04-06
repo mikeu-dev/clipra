@@ -8,7 +8,10 @@ export interface TiktokExtraction {
   images?: string[];
   cover: string;
   caption: string;
-  author: string;
+  author: string | {
+    nickname: string;
+    uniqueId: string;
+  };
 }
 
 export interface ExtractionResult {
@@ -19,4 +22,5 @@ export interface ExtractionResult {
 
 export interface StrategyResult extends ExtractionResult {
   layer: string;
+  isCached?: boolean;
 }
