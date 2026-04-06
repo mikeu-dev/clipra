@@ -1,0 +1,13 @@
+{
+	"id": "faqPage",
+	"content": {
+		"id": {
+			"heading": "Pertanyaan Umum",
+			"description": "Temukan jawaban dari pertanyaan-pertanyaan yang sering diajukan seputar layanan, proses kerja, dan informasi umum tentang"
+		},
+		"en": {
+			"heading": "Frequently Asked Questions",
+			"description": "Find answers to the most commonly asked questions about our services, workflow, and general company information."
+		}
+	}
+}

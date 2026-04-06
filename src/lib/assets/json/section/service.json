@@ -1,0 +1,13 @@
+{
+	"id": "service",
+	"content": {
+		"id": {
+			"heading": "Layanan Kami",
+			"description": "Kami menyediakan berbagai layanan berbasis teknologi untuk mendukung transformasi digital di berbagai sektor."
+		},
+		"en": {
+			"heading": "Our Services",
+			"description": "We provide a range of technology-based services to support digital transformation across various sectors."
+		}
+	}
+}

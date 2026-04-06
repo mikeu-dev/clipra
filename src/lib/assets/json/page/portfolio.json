@@ -1,0 +1,65 @@
+{
+	"id": "portfolio",
+	"content": {
+		"id": {
+			"heading": "Portofolio Kami",
+			"description": "Proyek-proyek terbaik yang telah kami bangun untuk klien dari berbagai sektor industri. Kami berkomitmen untuk memberikan solusi teknologi yang inovatif dan efektif.",
+			"filter": {
+				"label": "Filter Kategori",
+				"description": "Pilih kategori untuk melihat proyek berdasarkan jenis layanan yang kami berikan."
+			},
+			"form": {
+				"label": "Cari Proyek",
+				"placeholder": "Masukkan nama proyek atau kata kunci",
+				"button": "Cari"
+			},
+			"notFound": "Tidak ada proyek yang ditemukan. Silakan ubah filter atau cari dengan kata kunci lain.",
+			"pagination": "Menampilkan {paginated} dari {filtered} proyek, halaman {current} dari {total}",
+			"modal": {
+				"title": "Detail Proyek",
+				"description": "Detail lengkap tentang proyek ini, termasuk deskripsi, teknologi yang digunakan, dan hasil yang dicapai.",
+				"item": {
+					"category": "Kategori",
+					"technology": "Teknologi",
+					"client": "Klien"
+				},
+				"close": "Tutup"
+			},
+			"cta": {
+				"heading": "Siap Mewujudkan Ide Anda?",
+				"subheading": "Mari berkolaborasi untuk menciptakan solusi digital yang luar biasa untuk bisnis Anda.",
+				"button": "Mulai Proyek"
+			}
+		},
+		"en": {
+			"heading": "Our Portfolio",
+			"description": "The best projects we have built for clients across various industry sectors. We are committed to providing innovative and effective technology solutions.",
+			"filter": {
+				"label": "Filter by Category",
+				"description": "Select a category to view projects based on the type of services we provide."
+			},
+			"form": {
+				"label": "Search Projects",
+				"placeholder": "Enter project name or keywords",
+				"button": "Search"
+			},
+			"notFound": "No projects found. Please change the filter or search with different keywords.",
+			"pagination": "Showing {paginated} of {filtered} projects, page {current} of {total}",
+			"modal": {
+				"title": "Project Details",
+				"description": "Complete details about this project, including description, technologies used, and results achieved.",
+				"item": {
+					"category": "Category",
+					"technology": "Technology",
+					"client": "Client"
+				},
+				"close": "Close"
+			},
+			"cta": {
+				"heading": "Ready to Bring Your Ideas to Life?",
+				"subheading": "Let's collaborate to build amazing digital solutions for your business.",
+				"button": "Start a Project"
+			}
+		}
+	}
+}

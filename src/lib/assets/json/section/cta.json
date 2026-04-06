@@ -1,0 +1,15 @@
+{
+	"id": "cta",
+	"content": {
+		"id": {
+			"heading": "Siap Memulai Transformasi Digital?",
+			"description": "Hubungi tim kami hari ini dan diskusikan kebutuhan bisnis Anda. Kami siap membantu Anda meraih kesuksesan!",
+			"button": "Hubungi Kami"
+		},
+		"en": {
+			"heading": "Ready to Start Your Digital Transformation?",
+			"description": "Contact our team today and discuss your business needs. We're ready to help you achieve success!",
+			"button": "Contact Us"
+		}
+	}
+}

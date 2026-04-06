@@ -1,0 +1,13 @@
+{
+	"id": "team",
+	"content": {
+		"id": {
+			"heading": "Kenali Tim Kami",
+			"description": "Kami adalah tim kreatif dan berdedikasi yang membangun solusi digital untuk membantu bisnis Anda tumbuh dan berkembang."
+		},
+		"en": {
+			"heading": "Meet Our Team",
+			"description": "We are a creative and dedicated team building digital solutions to help your business grow and thrive."
+		}
+	}
+}

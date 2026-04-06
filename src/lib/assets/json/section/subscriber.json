@@ -1,0 +1,59 @@
+{
+	"id": "newsletter",
+	"content": {
+		"id": {
+			"heading": "Berlangganan Newsletter Kami",
+			"description": "Dapatkan artikel dan informasi terbaru langsung ke email Anda. Kami berkomitmen untuk tidak mengirimkan spam.",
+			"form": {
+				"email": {
+					"label": "Email",
+					"placeholder": "Masukkan email Anda..."
+				},
+				"description": "Apakah Anda yakin ingin berlangganan?"
+			},
+			"cta": {
+				"subscribe": "Berlangganan",
+				"cancel": "Batal",
+				"loading": "Harap tunggu...",
+				"yes": "Ya",
+				"utilize": {
+					"one": {
+						"label": "Artikel Mingguan",
+						"description": "Dapatkan artikel terbaru, tips, dan wawasan teknologi setiap minggu."
+					},
+					"two": {
+						"label": "Tanpa Spam",
+						"description": "Kami hanya mengirimkan konten yang bermanfaat dan relevan tanpa spam."
+					}
+				}
+			}
+		},
+		"en": {
+			"heading": "Subscribe to Our Newsletter",
+			"description": "Get the latest articles and information directly to your email. We are committed to not sending spam.",
+			"form": {
+				"email": {
+					"label": "Email",
+					"placeholder": "Enter your email..."
+				},
+				"description": "Are you sure you want to subscribe?"
+			},
+			"cta": {
+				"subscribe": "Subscribe",
+				"cancel": "Cancel",
+				"loading": "Please wait...",
+				"yes": "Yes",
+				"utilize": {
+					"one": {
+						"label": "Weekly Articles",
+						"description": "Receive the latest articles, tips, and tech insights every week."
+					},
+					"two": {
+						"label": "No Spam",
+						"description": "We only send useful and relevant content without spam."
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,39 @@
+# Package Managers
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock
+bun.lockb
+
+# Build Outputs
+.svelte-kit
+build
+dist
+.vercel
+.netlify
+.output
+.wrangler
+
+# Dependencies
+node_modules
+
+# Storage & User Content
+storage
+static/tmp
+
+# OS / Env
+.DS_Store
+Thumbs.db
+.env
+.env.*
+!.env.example
+
+# Tooling specific
+coverage
+test-results
+playwright-report
+report
+
+# Paraglide
+src/paraglide
+src/lib/paraglide

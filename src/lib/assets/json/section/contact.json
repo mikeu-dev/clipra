@@ -1,0 +1,83 @@
+{
+	"id": "contact",
+	"content": {
+		"id": {
+			"heading": "Hubungi Kami",
+			"description": "Kami siap mendengarkan kebutuhan Anda dan memberikan solusi terbaik.",
+			"form": {
+				"firstName": {
+					"label": "Nama Depan",
+					"placeholder": "Masukkan nama depan..."
+				},
+				"lastName": {
+					"label": "Nama Belakang",
+					"placeholder": "Masukkan nama belakang..."
+				},
+				"company": {
+					"label": "Perusahaan",
+					"placeholder": "Masukkan nama perusahaan..."
+				},
+				"email": {
+					"label": "Email",
+					"placeholder": "Masukkan email..."
+				},
+				"phone": {
+					"label": "Nomor Telepon",
+					"placeholder": "0812-3456-7890"
+				},
+				"message": {
+					"label": "Pesan",
+					"placeholder": "Tulis pesan Anda di sini..."
+				},
+				"policy": "Dengan memilih ini, Anda menyetujui kebijakan privasi kami."
+			},
+			"cta": {
+				"submit": "Kirim Pesan",
+				"confirmTitle": "Kontak",
+				"confirmMessage": "Apakah Anda yakin ingin mengirim pesan ini?",
+				"cancel": "Batal",
+				"yes": "Ya",
+				"loading": "Harap tunggu..."
+			}
+		},
+		"en": {
+			"heading": "Contact Us",
+			"description": "We are ready to listen to your needs and provide the best solutions.",
+			"form": {
+				"firstName": {
+					"label": "First Name",
+					"placeholder": "Enter your first name..."
+				},
+				"lastName": {
+					"label": "Last Name",
+					"placeholder": "Enter your last name..."
+				},
+				"company": {
+					"label": "Company",
+					"placeholder": "Enter your company name..."
+				},
+				"email": {
+					"label": "Email",
+					"placeholder": "Enter your email..."
+				},
+				"phone": {
+					"label": "Phone Number",
+					"placeholder": "0812-3456-7890"
+				},
+				"message": {
+					"label": "Message",
+					"placeholder": "Write your message here..."
+				},
+				"policy": "By checking this, you agree to our privacy policy."
+			},
+			"cta": {
+				"submit": "Send Message",
+				"confirmTitle": "Contact",
+				"confirmMessage": "Are you sure you want to send this message?",
+				"cancel": "Cancel",
+				"yes": "Yes",
+				"loading": "Please wait..."
+			}
+		}
+	}
+}

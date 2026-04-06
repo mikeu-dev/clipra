@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sv-erp-config
+  namespace: sv-erp
+data:
+  NODE_ENV: 'production'
+  PORT: '3000'
+  ORIGIN: 'http://erp.local'
+  REDIS_HOST: 'redis'
+  REDIS_PORT: '6379'

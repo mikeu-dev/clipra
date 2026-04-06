@@ -1,0 +1,11 @@
+node_modules
+.git
+.github
+.env
+.env.*
+build
+.svelte-kit
+tests
+coverage
+README.md
+docker-compose.yml

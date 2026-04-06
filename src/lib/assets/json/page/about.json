@@ -1,0 +1,65 @@
+{
+	"id": "aboutPage",
+	"content": {
+		"id": {
+			"heading": "Tentang Perusahaan Kami",
+			"description": {
+				"first": "Pratama Solusi Teknologi merupakan perusahaan perseroan terbatas yang bergerak di bidang teknologi informasi, multimedia, advertising, dan event organizer.",
+				"second": "Berdiri tanggal 06 Februari 2021 dengan Nomor Induk Berusaha 1251000201769 dan Nomor SK Pendirian AHU-0010780.AH.01.01 Tahun 2023 dengan NPWP 41.444.400.0-409.000 beralamat di Kp. Gandasoli, Desa Babakan Kecamatan Wanayasa, Kabupaten Purwakarta, Provinsi Jawa Barat."
+			},
+			"services": {
+				"service": "Layanan Kami",
+				"project": "Portofolio Proyek",
+				"about": "Tentang Kami",
+				"contact": "Hubungi Kami"
+			},
+			"goals": {
+				"successfulProject": "Proyek Sukses",
+				"client": "Klien Puas",
+				"team": "Tim Profesional",
+				"history": {
+					"label": "Pengalaman",
+					"year": "Tahun"
+				}
+			},
+			"visimisi": {
+				"visi": "Visi",
+				"misi": "Misi"
+			},
+			"address": {
+				"title": "Kantor Kami",
+				"description": "Kunjungi kantor kami atau hubungi kami melalui informasi di bawah ini."
+			}
+		},
+		"en": {
+			"heading": "About Our Company",
+			"description": {
+				"first": "Pratama Solusi Teknologi is a limited liability company engaged in information technology, multimedia, advertising, and event organizing.",
+				"second": "Established on February 6, 2021, with Business Identification Number 1251000201769 and Deed of Establishment Number AHU-0010780.AH.01.01 of 2023, registered with Taxpayer ID 41.444.400.0-409.000. Located in Kp. Gandasoli, Babakan Village, Wanayasa District, Purwakarta Regency, West Java Province."
+			},
+			"services": {
+				"service": "Our Services",
+				"project": "Project Portfolio",
+				"about": "About Us",
+				"contact": "Contact Us"
+			},
+			"goals": {
+				"successfulProject": "Successful Projects",
+				"client": "Satisfied Clients",
+				"team": "Professional Team",
+				"history": {
+					"label": "Experience",
+					"year": "Years"
+				}
+			},
+			"visimisi": {
+				"visi": "Vision",
+				"misi": "Mission"
+			},
+			"address": {
+				"title": "Our Office",
+				"description": "Visit our office or contact us using the information below."
+			}
+		}
+	}
+}

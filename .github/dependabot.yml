@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    ignore:
+      - dependency-name: 'svelte'
+        versions: ['^5.0.0']
+    commit-message:
+      prefix: 'chore'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/.github/workflows'
+    schedule:
+      interval: 'daily'
+    commit-message:
+      prefix: 'ci'

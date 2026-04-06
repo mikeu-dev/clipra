@@ -1,0 +1,46 @@
+{
+	"name": "SV-ERP-SH",
+	"short_name": "SV-ERP",
+	"description": "Enterprise Resource Planning System by PT. Pratama Solusi Teknologi",
+	"start_url": "/panel",
+	"display": "standalone",
+	"background_color": "#ffffff",
+	"theme_color": "#0f172a",
+	"orientation": "portrait-primary",
+	"icons": [
+		{
+			"src": "/favicon.png",
+			"sizes": "128x128",
+			"type": "image/png",
+			"purpose": "any maskable"
+		}
+	],
+	"categories": ["business", "productivity"],
+	"screenshots": [],
+	"shortcuts": [
+		{
+			"name": "Dashboard",
+			"short_name": "Dashboard",
+			"description": "View dashboard",
+			"url": "/panel",
+			"icons": [
+				{
+					"src": "/favicon.png",
+					"sizes": "192x192"
+				}
+			]
+		},
+		{
+			"name": "Projects",
+			"short_name": "Projects",
+			"description": "Manage projects",
+			"url": "/panel/project",
+			"icons": [
+				{
+					"src": "/favicon.png",
+					"sizes": "192x192"
+				}
+			]
+		}
+	]
+}

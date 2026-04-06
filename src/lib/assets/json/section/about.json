@@ -1,0 +1,23 @@
+{
+	"id": "about",
+	"content": {
+		"id": {
+			"heading": "Tentang Perusahaan Kami",
+			"description": "Saat ini kami telah melayani lebih dari 200 klien di seluruh Indonesia. Seiring dengan perkembangan, kami berinisiatif untuk mengelompokkan seluruh produk dan layanan ke dalam suatu sistem yang terintegrasi untuk mewujudkan Smart city, Smart Company, dan Smart Government",
+			"cta": {
+				"label": "Selengkapnya",
+				"href": "/about",
+				"style": "primary"
+			}
+		},
+		"en": {
+			"heading": "About Our Company",
+			"description": "We have served over 200 clients across Indonesia. As we grow, we are taking the initiative to integrate all our products and services into a unified system to realize Smart City, Smart Company, and Smart Government.",
+			"cta": {
+				"label": "Learn More",
+				"href": "/about",
+				"style": "primary"
+			}
+		}
+	}
+}

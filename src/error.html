@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link
+			rel="icon"
+			href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y+mAAAAh1BMVEVHcEwFOmcERG0ESHcANmwBMWgFRWxibl3/2AD/1gr/1An/zgL/xwH/xAABNmYHRGsCQ3MDUIAAGoYHRmz/wwAHO2YFPGkDRnP/4wAANGiyl0v/xAD/yQP/wwAHRmz/6gf/xAD/xAABK2oAMGn/wwAHRmz/2Qv/wwD/zQUHRmwCNmUDPmkAI3AgYmK8AAAALXRSTlMAgsG+Yiy4T2mLxrzEm2//zf8H3aGS66tBNmXPjw5/Kf98Iljq/U7fVoJRSBN5ISlxAAAAqUlEQVR4Ae1MhQGAMAwb7u4OHQ7/v4f7DWSWLoJ+7CBIkqJohBiWXMDxgihJkqxsmqqxFKUbJtIslmUPUZbtTXTc9fb8QLu6aP0ghxhGSHN1L5aSZUi1W8wyxc4LBJ7HYrlcxeoW/bpsimNq8494/sdl0+TRwrqrticO4vOKomwNg3OKY2AGAAyMI4A5MhAwwJgMM25iMJi0imlV7THdYwIW2tMYB+jHihkhVwz9eN/cPAAAAABJRU5ErkJggg=="
+		/>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>%sveltekit.error.message%</title>
+		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+	</head>
+	<body class="flex min-h-screen flex-col items-center justify-center bg-white text-gray-800">
+		<main
+			class="flex w-full max-w-md flex-col items-center justify-center space-y-6 px-4 text-center"
+		>
+			<img src="/undraw_server-error_syuz.svg" alt="Server Error" class="mx-auto h-64" />
+			<div>
+				<h3 class="text-2xl font-bold">%sveltekit.status% | %sveltekit.error.message%</h3>
+				<p class="mt-4 text-gray-600">
+					We are very sorry for the inconvenience. It looks like you’re trying to access a page that
+					either has been deleted or never existed.
+				</p>
+				<a
+					href="/"
+					class="mt-6 inline-block rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition hover:bg-blue-700"
+				>
+					Back To Home
+				</a>
+			</div>
+		</main>
+	</body>
+</html>

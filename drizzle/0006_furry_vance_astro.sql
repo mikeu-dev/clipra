@@ -1,0 +1,4 @@
+ALTER TABLE `invoices` ADD `purchase_order_id` varchar(36);--> statement-breakpoint
+ALTER TABLE `purchase_orders` ADD `requisition_id` varchar(36);--> statement-breakpoint
+ALTER TABLE `invoices` ADD CONSTRAINT `invoices_purchase_order_id_purchase_orders_id_fk` FOREIGN KEY (`purchase_order_id`) REFERENCES `purchase_orders`(`id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `purchase_orders` ADD CONSTRAINT `purchase_orders_requisition_id_purchase_requisitions_id_fk` FOREIGN KEY (`requisition_id`) REFERENCES `purchase_requisitions`(`id`) ON DELETE no action ON UPDATE no action;
