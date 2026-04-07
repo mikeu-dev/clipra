@@ -63,71 +63,70 @@ export class BrowserExtractor {
         logger.warn('Content selector timeout, attempting hydration anyway...');
       }
 
-      // 5. Extract Data
+      // 5. Extract Data via DOM Scan
       let extractedData = await page.evaluate(() => {
-        const getVal = (obj: any, path: string) => {
+        const getValByPath = (obj: any, path: string) => {
           return path.split('.').reduce((acc, part) => acc && acc[part], obj);
         };
 
-        const universalDataEl = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
-        if (universalDataEl && universalDataEl.textContent) {
+        const scripts = Array.from(document.querySelectorAll('script[type="application/json"]'));
+        for (const script of scripts) {
+          if (!script.textContent) continue;
           try {
-            const parsed = JSON.parse(universalDataEl.textContent);
+            const parsed = JSON.parse(script.textContent);
             const defaultScope = parsed['__DEFAULT_SCOPE__'] || parsed;
-            const item = getVal(defaultScope, 'webapp.video-detail.itemInfo.itemStruct') || 
-                         getVal(defaultScope, 'webapp.photomode-detail.itemInfo.itemStruct');
             
-            if (item) {
-              if (item.video) {
-                return {
-                  id: item.id || '',
-                  type: item.imagePost ? ('image' as const) : ('video' as const),
-                  video: item.video.playAddr || item.video.downloadAddr || '',
-                  hdplay: item.video.playAddr || '',
-                  wmplay: item.video.downloadAddr || '',
-                  images: item.imagePost?.images?.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
-                  cover: item.video.cover || item.imagePost?.cover?.displayAddr || '',
-                  caption: item.desc || '',
-                  author: item.author?.uniqueId || item.author?.nickname || '',
-                  music: item.music?.playUrl || ''
-                };
-              }
+            const item = getValByPath(defaultScope, 'webapp.video-detail.itemInfo.itemStruct') || 
+                         getValByPath(defaultScope, 'webapp.photomode-detail.itemInfo.itemStruct');
+            
+            if (item && item.video) {
+              return {
+                id: item.id || '',
+                type: item.imagePost ? 'image' : 'video',
+                video: item.video.playAddr || item.video.downloadAddr || '',
+                hdplay: item.video.playAddr || '',
+                wmplay: item.video.downloadAddr || '',
+                images: item.imagePost?.images?.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+                cover: item.video.cover || item.imagePost?.cover?.displayAddr || '',
+                caption: item.desc || '',
+                author: item.author?.uniqueId || item.author?.nickname || '',
+                music: item.music?.playUrl || ''
+              };
             }
-          } catch (e) { /* ignore */ }
+          } catch (e) { /* skip bad json */ }
         }
         return null;
-      }) as TiktokExtraction | null;
+      }) as any;
 
       // Fallback: If DOM extraction failed, try Regex on full page content
       if (!extractedData) {
         logger.info('DOM extraction failed, attempting Regex fallback on page content...');
         const content = await page.content();
         
-        const rehydrationMatch = content.match(/<script id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application\/json">(.*?)<\/script>/);
+        // Flexible Regex: handles different attribute order and whitespace
+        const rehydrationMatch = content.match(/<script[^>]*id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)<\/script>/s);
         if (rehydrationMatch && rehydrationMatch[1]) {
           try {
-            const parsed = JSON.parse(rehydrationMatch[1]);
+            const parsed = JSON.parse(rehydrationMatch[1].trim());
             const getVal = (obj: any, path: string) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
             const defaultScope = parsed['__DEFAULT_SCOPE__'] || parsed;
             const item = getVal(defaultScope, 'webapp.video-detail.itemInfo.itemStruct') || 
                          getVal(defaultScope, 'webapp.photomode-detail.itemInfo.itemStruct');
 
-            if (item) {
+            if (item && item.video) {
               logger.info('Regex fallback successful for UNIVERSAL_DATA');
-              if (item.video) {
-                extractedData = {
-                  id: item.id || '',
-                  type: item.imagePost ? ('image' as const) : ('video' as const),
-                  video: item.video.playAddr || item.video.downloadAddr || '',
-                  hdplay: item.video.playAddr || '',
-                  wmplay: item.video.downloadAddr || '',
-                  images: item.imagePost?.images?.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
-                  cover: item.video.cover || item.imagePost?.cover?.displayAddr || '',
-                  caption: item.desc || '',
-                  author: item.author?.uniqueId || item.author?.nickname || '',
-                  music: item.music?.playUrl || ''
-                };
-              }
+              extractedData = {
+                id: item.id || '',
+                type: item.imagePost ? 'image' : 'video',
+                video: item.video.playAddr || item.video.downloadAddr || '',
+                hdplay: item.video.playAddr || '',
+                wmplay: item.video.downloadAddr || '',
+                images: item.imagePost?.images?.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+                cover: item.video.cover || item.imagePost?.cover?.displayAddr || '',
+                caption: item.desc || '',
+                author: item.author?.uniqueId || item.author?.nickname || '',
+                music: item.music?.playUrl || ''
+              };
             }
           } catch (e) {
             logger.warn('Regex fallback failed to parse or find itemStruct');
@@ -142,20 +141,18 @@ export class BrowserExtractor {
           if (sigi && sigi.ItemModule) {
             const videoId = Object.keys(sigi.ItemModule)[0];
             const item = videoId ? sigi.ItemModule[videoId] : null;
-            if (item) {
-              if (item.video) {
-                return {
-                  id: videoId,
-                  type: 'video' as const,
-                  video: item.video?.playAddr || item.video?.downloadAddr || '',
-                  hdplay: item.video?.playAddr || '',
-                  wmplay: item.video?.downloadAddr || '',
-                  cover: item.video?.cover || '',
-                  caption: item.desc || '',
-                  author: item.author || '',
-                  music: item.music?.playUrl || item.music?.playAddr || ''
-                };
-              }
+            if (item && item.video) {
+              return {
+                id: videoId,
+                type: 'video',
+                video: item.video?.playAddr || item.video?.downloadAddr || '',
+                hdplay: item.video?.playAddr || '',
+                wmplay: item.video?.downloadAddr || '',
+                cover: item.video?.cover || '',
+                caption: item.desc || '',
+                author: item.author || '',
+                music: item.music?.playUrl || item.music?.playAddr || ''
+              };
             }
           }
 
@@ -163,7 +160,7 @@ export class BrowserExtractor {
           if (video && video.src && !video.src.startsWith('blob:')) {
             return {
               id: '',
-              type: 'video' as const,
+              type: 'video',
               video: video.src,
               hdplay: video.src,
               wmplay: '',
@@ -174,7 +171,7 @@ export class BrowserExtractor {
             };
           }
           return null;
-        }) as TiktokExtraction | null;
+        });
       }
 
       if (!extractedData) {
