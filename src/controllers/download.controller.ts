@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import httpClient from '../providers/httpClient';
+import axios from 'axios';
 import logger from '../utils/logger';
-import { AppError } from '../utils/error';
 
 export class DownloadController {
   /**
    * Proxies a download request to bypass CORS and force attachment disposition.
+   * Using a fresh axios instance to avoid global interceptors which might cause 403 on binary files.
    */
   static async handleDownload(req: Request, res: Response) {
     const url = req.query.url as string;
@@ -18,14 +18,20 @@ export class DownloadController {
     try {
       logger.info(`[Download Proxy] Fetching: ${url}`);
 
-      const response = await httpClient.client.get(url, {
+      // Use a fresh instance to avoid "browser-like" scraping headers that might trigger 403
+      const response = await axios.get(url, {
         responseType: 'stream',
+        timeout: 20000,
         headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
           'Referer': 'https://www.tiktok.com/',
+          'Accept': '*/*',
+          'Range': 'bytes=0-', // Help bypass some CDN restrictions for media
         }
       });
 
       // Forward content type or default based on type param
+      // Note: use response.headers['content-type'] if it exists, otherwise fallback
       const contentType = response.headers['content-type'] || (type === 'MP3' ? 'audio/mpeg' : 'video/mp4');
       const extension = type.toLowerCase();
       const filename = `clipra_download_${Date.now()}.${extension}`;
@@ -38,6 +44,7 @@ export class DownloadController {
         res.setHeader('Content-Length', response.headers['content-length']);
       }
 
+      // Handle stream piping
       response.data.pipe(res);
 
       response.data.on('error', (err: any) => {
@@ -48,11 +55,17 @@ export class DownloadController {
       });
 
     } catch (error: any) {
-      logger.error(`[Download Proxy] Error: ${error.message}`);
       const statusCode = error.response?.status || 500;
+      const errorMsg = error.response?.status === 403 
+        ? "TikTok CDN rejected the request (403 Forbidden). The link might have expired or security headers were rejected."
+        : error.message;
+
+      logger.error(`[Download Proxy] Error ${statusCode}: ${errorMsg}`);
+      
       return res.status(statusCode).json({ 
         success: false, 
-        error: `Failed to proxy download: ${error.message}` 
+        error: errorMsg,
+        suggestion: statusCode === 403 ? "Please try to scrape the URL again to get a fresh download link." : undefined
       });
     }
   }
