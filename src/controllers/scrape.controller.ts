@@ -81,6 +81,14 @@ export class ScrapeController {
 
       const d = result.data;
       
+      const baseUrl = `${req.protocol}://${req.get('host')}/scrape/download`;
+      const proxify = (url: string | undefined, type: string = 'MP4') => {
+        if (!url) return '';
+        // If it's already a proxied URL or doesn't look like a TikTok CDN URL, return as is
+        if (!url.includes('tiktok') && !url.includes('ttwstatic')) return url; 
+        return `${baseUrl}?url=${encodeURIComponent(url)}&type=${type}`;
+      };
+
       // Map Clipra TiktokExtraction to TikWM VideoData
       return res.status(200).json({
         code: 0,
@@ -91,11 +99,11 @@ export class ScrapeController {
           title: d.caption,
           cover: d.cover,
           origin_cover: d.cover,
-          play: d.video || d.hdplay,
-          wmplay: d.wmplay || d.video,
-          hdplay: d.hdplay || d.video,
-          music: d.music,
-          images: d.images,
+          play: proxify(d.video || d.hdplay, 'MP4'),
+          wmplay: proxify(d.wmplay || d.video, 'MP4'),
+          hdplay: proxify(d.hdplay || d.video, 'MP4'),
+          music: proxify(d.music, 'MP3'),
+          images: d.images?.map(img => proxify(img, 'JPG')),
           author: {
             nickname: typeof d.author === 'string' ? d.author : d.author?.nickname || '',
             unique_id: typeof d.author === 'string' ? d.author : d.author?.uniqueId || ''
