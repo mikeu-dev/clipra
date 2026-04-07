@@ -3,5 +3,6 @@ dist/
 .env
 .session.json
 debug-browser-fallback.*
+debug-*
 .DS_Store
 *.log

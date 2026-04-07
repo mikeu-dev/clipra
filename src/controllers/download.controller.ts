@@ -25,7 +25,9 @@ export class DownloadController {
       const headers: any = {
         'User-Agent': ua || HttpClient.DEFAULT_UA,
         'Referer': 'https://www.tiktok.com/',
+        'Origin': 'https://www.tiktok.com',
         'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
         'Range': 'bytes=0-', // Help bypass some CDN restrictions for media
       };
 

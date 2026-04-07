@@ -38,10 +38,14 @@ export class BrowserProvider {
     const args = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
+      '--disable-infobars',
+      '--window-position=0,0',
+      '--ignore-certifcate-errors',
+      '--ignore-certifcate-errors-spki-list',
+      '--disable-blink-features=AutomationControlled', // CRITICAL: Hides automation status
       '--disable-web-security',
       '--disable-features=IsolateOrigins,site-per-process',
-      '--window-size=1366,768',
-      '--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+      '--window-size=1920,1080',
     ];
 
     if (proxyUrl) {
@@ -50,11 +54,14 @@ export class BrowserProvider {
     }
 
     const isHeadless = env.BROWSER_HEADLESS;
+    const desktopUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
     // Use puppeteer-extra for local stealth
     return await (puppeteerExtra as any).launch({
       headless: isHeadless,
       args: args,
+      defaultViewport: null,
+      userAgent: desktopUA, // Set UA at launch for consistency
     });
   }
 
@@ -84,23 +91,40 @@ export class BrowserProvider {
       'Accept-Language': 'en-US,en;q=0.9,id;q=0.8',
     });
 
-    // In-page stealth
+    // Extreme Stealth Hardware Simulation
     await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en', 'id'],
-      });
-      Object.defineProperty(navigator, 'platform', {
-        get: () => 'Win32',
-      });
-      // Mock WebGL
+      // 1. Mock Navigator Hardware
+      Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+      Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+      Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 1 });
+      
+      // 2. Mock Languages and Platform
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en', 'id'] });
+      Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+      
+      // 3. Mock WebGL (Detailed GPU)
       const getParameter = WebGLRenderingContext.prototype.getParameter;
       WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        // UNMASKED_VENDOR_WEBGL
         if (parameter === 37445) return 'Intel Inc.';
-        if (parameter === 37446) return 'Intel(R) Iris(TM) Graphics 6100';
+        // UNMASKED_RENDERER_WEBGL
+        if (parameter === 37446) return 'Intel(R) UHD Graphics 620';
         return getParameter.apply(this, [parameter]);
       };
+
+      // 4. Hide Automation
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+      
+      // 5. Mock Permissions
+      const originalQuery = window.navigator.permissions.query;
+      (window.navigator.permissions as any).query = (parameters: any) => (
+        parameters.name === 'notifications' ?
+          Promise.resolve({ state: Notification.permission } as PermissionStatus) :
+          originalQuery(parameters)
+      );
     });
 
+    /* 
     await page.setRequestInterception(true);
     page.on('request', (req) => {
       const resourceType = req.resourceType();
@@ -110,6 +134,7 @@ export class BrowserProvider {
         req.continue();
       }
     });
+    */
 
     await page.setUserAgent(
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'

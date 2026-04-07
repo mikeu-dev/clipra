@@ -42,10 +42,17 @@ export class Helpers {
    */
   public static extractVideoId(url: string): string | null {
     // Mencari format video/123456789... atau photo/123456789...
-    const match = url.match(/\/(video|photo)\/(\d+)/);
+    const match = url.match(/\/(video|photo|v)\/(\d+)/);
     if (match && match[2]) {
       return match[2];
     }
+    
+    // Fallback untuk URL format lainnya yang hanya berisi angka di akhir (setelah user ID)
+    const fallbackMatch = url.match(/\/(\d+)(\?|$)/);
+    if (fallbackMatch && fallbackMatch[1] && fallbackMatch[1].length > 15) {
+      return fallbackMatch[1];
+    }
+    
     return null;
   }
 }

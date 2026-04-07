@@ -2,7 +2,6 @@ import { BrowserProvider } from '../providers/browserPool';
 import { SessionProvider } from '../providers/sessionProvider';
 import { ExtractionResult, TiktokExtraction } from '../types';
 import logger from '../utils/logger';
-import path from 'path';
 import fs from 'fs';
 
 export class BrowserExtractor {
@@ -12,118 +11,174 @@ export class BrowserExtractor {
   public async extract(url: string): Promise<ExtractionResult> {
     let browser = null;
     try {
+      logger.info(`[Browser] Starting extraction for: ${url}`);
       browser = await BrowserProvider.launch();
       const page = await browser.newPage();
-      await BrowserProvider.optimizePage(page);
+      await BrowserProvider.optimizePage(page).catch(e => logger.warn(`Optimization failed: ${e.message}`));
 
-      const forcedUA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1';
-      await page.setUserAgent(forcedUA);
+      const desktopUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+      await page.setUserAgent(desktopUA);
+      await page.setViewport({ width: 1920, height: 1080 });
+
+      let capturedVideoUrl = '';
+      let apiData: any = null;
+
+      page.on('request', (request) => {
+          const u = request.url();
+          if ((u.includes('.mp4') || u.includes('/video/tos/') || u.includes('v16-webapp-prime')) && 
+              (u.includes('tiktokcdn.com') || u.includes('tiktok.com'))) {
+              if (!capturedVideoUrl) {
+                  capturedVideoUrl = u;
+                  logger.info(`[Browser] Intercepted video stream URL.`);
+              }
+          }
+      });
+
+      page.on('response', async (response) => {
+        const resUrl = response.url();
+        if (resUrl.includes('/api/item/detail') || resUrl.includes('/api/v1/item/detail')) {
+          try {
+            const data = await response.json();
+            const item = data?.item_list?.[0] || data?.aweme_details?.[0] || data?.item_detail || data?.aweme_detail || data?.itemInfo?.itemStruct;
+            if (item) {
+              apiData = item;
+              logger.info('[Browser] Captured internal API JSON.');
+            }
+          } catch (e) {}
+        }
+      });
 
       try {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      } catch (e) {
-        logger.warn('Initial navigation timeout, continuing anyway...');
+        logger.info('[Browser] Navigating to page (Referer: Google)...');
+        // Mask the origin as Google search result
+        await page.setExtraHTTPHeaders({
+            'Referer': 'https://www.google.com/',
+        });
+        
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        
+        // Random wait to mimic human 
+        await new Promise(r => setTimeout(r, 1000 + Math.random() * 2000));
+
+        logger.info('[Browser] Page loaded, searching for video player...');
+        await page.evaluate(async () => {
+            const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+            window.scrollBy(0, 100 + Math.random() * 200);
+            await delay(500 + Math.random() * 500);
+            window.scrollBy(0, 200 + Math.random() * 300);
+            await delay(500 + Math.random() * 500);
+            
+            const targets = document.querySelectorAll('div[class*="PlayIcon"], div[class*="VideoContainer"], div[class*="VideoWrapper"], img, button[aria-label="Go to next slide"]');
+            if (targets.length > 0) {
+                // Click a few times to trigger loading if it's a slideshow
+                const target = targets[Math.floor(Math.random() * Math.min(targets.length, 3))] as HTMLElement;
+                target.click();
+                await delay(500);
+                const nextBtn = document.querySelector('button[aria-label="Go to next slide"]') as HTMLElement;
+                if (nextBtn) nextBtn.click();
+            }
+        });
+
+        // Wait up to 12s or until we get the URL
+        logger.info('[Browser] Monitoring network for MP4 link...');
+        for(let i=0; i<12; i++) {
+            if (capturedVideoUrl) break;
+            
+            // Check for captcha mid-wait
+            const hasCaptcha = await page.evaluate(() => !!document.querySelector('#captcha_container') || document.body.innerText.includes('Verify to continue'));
+            if (hasCaptcha) {
+                logger.warn('[Browser] CAPTCHA detected during wait loop!');
+                break;
+            }
+            
+            await new Promise(r => setTimeout(r, 1000));
+        }
+        
+      } catch (e: any) {
+        logger.warn(`Browser navigation/interaction timed out or failed: ${e.message}`);
       }
 
-      // Check for blocks
-      const pageStatus = await page.evaluate(() => {
-        const text = document.body.innerText;
-        if (text.includes('Video currently unavailable') || text.includes('Video ini tidak tersedia')) return 'UNAVAILABLE';
-        if (text.includes('Verify to continue') || document.querySelector('#captcha_container')) return 'CAPTCHA';
-        return 'OK';
-      });
+      const mapResult = (item: any, videoUrl: string): TiktokExtraction => {
+        const videoObj = item.video || {};
+        const images = Array.isArray(item.image_post?.images || item.imagePost?.images) 
+          ? (item.image_post?.images || item.imagePost?.images).map((img: any) => 
+              img.display_addr?.url_list?.[0] || img.displayAddr || img.image_url?.url_list?.[0] || ''
+            ).filter((u: string) => u !== '') 
+          : [];
 
-      if (pageStatus !== 'OK') return { success: false, error: `TikTok blocked access: ${pageStatus}` };
-
-      // 1. Pull ALL Script contents to parse server-side (Much more reliable than evaluate)
-      const scripts = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('script'))
-          .map(s => s.textContent || '')
-          .filter(t => t.length > 500); // Only large scripts likely containing data
-      });
-
-      const findItemInObject = (obj: any): any => {
-        if (!obj || typeof obj !== 'object') return null;
-        if (obj.itemStruct && (obj.itemStruct.video || obj.itemStruct.imagePost)) return obj.itemStruct;
-        if (obj.id && (obj.video || obj.imagePost)) return obj;
-        
-        for (const key in obj) {
-          if (obj.hasOwnProperty(key)) {
-            if (key === 'parent' || key === '_root' || key === '__DEFAULT_SCOPE__') continue;
-            try {
-              const found = findItemInObject(obj[key]);
-              if (found) return found;
-            } catch (e) {}
-          }
-        }
-        return null;
+        return {
+          id: String(item.aweme_id || item.id || ''),
+          type: 'video', 
+          video: videoUrl || videoObj.play_addr?.url_list?.[0] || '',
+          hdplay: videoUrl || videoObj.play_addr?.url_list?.[0] || '',
+          wmplay: videoUrl || videoObj.download_addr?.url_list?.[0] || '',
+          images: images,
+          cover: videoObj.cover?.url_list?.[0] || '',
+          caption: item.desc || '',
+          author: item.author?.unique_id || item.author?.nickname || '',
+          music: item.music?.play_url?.url_list?.[0] || ''
+        };
       };
 
-      let item = null;
-      for (const scriptText of scripts) {
-        try {
-          let data = null;
-          if (scriptText.trim().startsWith('{')) {
-            data = JSON.parse(scriptText);
-          } else if (scriptText.includes('SIGI_STATE')) {
-            const match = scriptText.match(/SIGI_STATE\s*=\s*({.*?});/s) || 
-                          scriptText.match(/window\['SIGI_STATE'\]=(.*?);window/s);
-            if (match && match[1]) data = JSON.parse(match[1]);
-          }
-
-          if (data) {
-            item = findItemInObject(data);
-            if (item) break;
-          }
-        } catch (e) {}
+      if (apiData || capturedVideoUrl) {
+        logger.info(`[Browser] Success! Found video via ${apiData ? 'API' : 'Network'}.`);
+        const result = mapResult(apiData || {}, capturedVideoUrl);
+        await SessionProvider.captureFromPage(page).catch(() => null); // Always capture session
+        const session = SessionProvider.getSession();
+        return { success: true, data: result, userAgent: session?.userAgent || desktopUA };
       }
 
-      // 2. Global Regex Fallback on Full Page Content
-      if (!item) {
-        logger.info('Script extraction failed, trying aggressive Global Regex...');
-        const content = await page.content();
-        // Look for itemStruct patterns in the whole HTML
-        const matches = content.match(/\{"[^"]+":\{"itemStruct":\{.*?\}/g);
-        if (matches) {
-          for (const m of matches) {
-            try {
-              item = findItemInObject(JSON.parse(m));
-              if (item) break;
-            } catch (e) {}
-          }
-        }
+      // DEEP DOM SCANNING: Last resort if everything above failed
+      logger.info('[Browser] Captured URL/API failed, attempting Deep DOM Scan...');
+      const deepScanResult = await page.evaluate(() => {
+          const findVideoInDOM = (): string => {
+              // 1. Try all video elements
+              const videos = Array.from(document.querySelectorAll('video'));
+              for (const v of videos) {
+                  if (v.src && v.src.startsWith('http')) return v.src;
+                  const source = v.querySelector('source');
+                  if (source && source.src) return source.src;
+              }
+              
+              // 2. Try window variables (NEXT_DATA, SIGI_STATE)
+              const win = window as any;
+              const jsonFind = (obj: any, target: string): string => {
+                  if (!obj || typeof obj !== 'object') return '';
+                  if (typeof obj[target] === 'string' && obj[target].includes('tiktokcdn.com')) return obj[target];
+                  for (const k in obj) {
+                      const res = jsonFind(obj[k], target);
+                      if (res) return res;
+                  }
+                  return '';
+              };
+              
+              return jsonFind(win.__NEXT_DATA__, 'play_addr') || 
+                     jsonFind(win.__NEXT_DATA__, 'playAddr') || 
+                     jsonFind(win.SIGI_STATE, 'play_addr') || 
+                     jsonFind(win.SIGI_STATE, 'playAddr') || 
+                     jsonFind(win.__UNIVERSAL_DATA_FOR_REHYDRATION__, 'play_addr') || 
+                     jsonFind(win.__UNIVERSAL_DATA_FOR_REHYDRATION__, 'playAddr') || '';
+          };
+          return findVideoInDOM();
+      }).catch(() => '');
+
+      if (deepScanResult) {
+          logger.info('[Browser] Success! Found video via Deep DOM Scan.');
+          const result = mapResult({}, deepScanResult);
+          await SessionProvider.captureFromPage(page).catch(() => null);
+          return { success: true, data: result, userAgent: desktopUA };
       }
 
-      if (item) {
-        const imagesList = item.imagePost?.images?.map((img: any) => 
-          img.imageURL?.urlList?.[0] || img.displayAddr || img.urlList?.[0] || ''
-        ).filter((u: string) => u !== '') || [];
+      // If we got here, we truly failed to find any video link
+      await SessionProvider.captureFromPage(page).catch(() => null);
 
-        const result: TiktokExtraction = {
-          id: item.id || '',
-          type: item.imagePost ? 'image' : 'video',
-          video: item.video?.playAddr || item.video?.downloadAddr || '',
-          hdplay: item.video?.playAddr || '',
-          wmplay: item.video?.downloadAddr || '',
-          images: imagesList,
-          cover: item.video?.cover || item.imagePost?.cover?.displayAddr || item.imagePost?.cover?.urlList?.[0] || '',
-          caption: item.desc || '',
-          author: item.author?.uniqueId || item.author?.nickname || item.author || '',
-          music: item.music?.playUrl || item.music?.playAddr || ''
-        };
-
-        const session = await SessionProvider.captureFromPage(page);
-        return { success: true, data: result, userAgent: session?.userAgent || forcedUA };
-      }
-
-      logger.warn('Browser extraction failed, capturing debug data...');
-      await page.screenshot({ path: 'debug-browser-fallback.png', fullPage: true });
-      fs.writeFileSync('debug-browser-fallback.html', await page.content());
-      return { success: false, error: 'Could not find slideshow/video data in page scripts.' };
+      logger.warn('[Browser] All extraction methods failed, saving debug state.');
+      await page.screenshot({ path: 'debug-browser-failed.png' });
+      return { success: false, error: 'Could not find slideshow/video data.' };
 
     } catch (e: any) {
-      logger.error(`Browser Extraction Error: ${e.message}`);
-      return { success: false, error: e.message };
+      logger.error(`[Browser] Critical Catch: ${e.message}`);
+      return { success: false, error: e.message || 'Unknown browser error' };
     } finally {
       if (browser) await browser.close().catch(() => {});
     }

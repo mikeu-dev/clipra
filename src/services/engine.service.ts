@@ -57,7 +57,7 @@ export class EngineService {
           // Find the first successful and valid result
           for (let i = 0; i < results.length; i++) {
             const res = results[i];
-            if (res.status === 'fulfilled' && res.value.success && res.value.data && this.isValidExtraction(res.value.data)) {
+            if (res.status === 'fulfilled' && res.value.success && res.value.data && this.isValidExtraction(res.value.data, url)) {
               const layerName = i === 0 ? 'Layer 1 (HTML-Race)' : 'Layer 3 (API-Race)';
               logger.info(`[Success] ${layerName} won the race.`);
               const finalResult: StrategyResult = { ...res.value, layer: layerName };
@@ -73,7 +73,7 @@ export class EngineService {
           logger.info(`[Attempt ${attempt}] Layer 1 (HTTP/Hydration) started...`);
           const httpResult = await this.htmlExtractor.extract(url);
           
-          if (httpResult.success && httpResult.data && this.isValidExtraction(httpResult.data)) {
+          if (httpResult.success && httpResult.data && this.isValidExtraction(httpResult.data, url)) {
             const finalResult: StrategyResult = { ...httpResult, layer: 'Layer 1 (HTML/Hydration)' };
             cacheService.set(cacheKey, finalResult);
             return finalResult;
@@ -83,7 +83,7 @@ export class EngineService {
           logger.info(`[Attempt ${attempt}] Layer 3 (Internal API) started...`);
           const apiResult = await this.apiExtractor.extract(url);
           
-          if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data)) {
+          if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data, url)) {
             const finalResult: StrategyResult = { ...apiResult, layer: 'Layer 3 (Internal API)' };
             cacheService.set(cacheKey, finalResult);
             return finalResult;
@@ -94,7 +94,7 @@ export class EngineService {
         logger.info(`[Attempt ${attempt}] Layer 4 (Browser Automation) started...`);
         const browserResult = await this.browserExtractor.extract(url);
         
-        if (browserResult.success && browserResult.data && this.isValidExtraction(browserResult.data)) {
+        if (browserResult.success && browserResult.data && this.isValidExtraction(browserResult.data, url)) {
           logger.info(`[Success] Data extracted via Layer 4 on attempt ${attempt}. Session refreshed.`);
           const finalResult: StrategyResult = { ...browserResult, layer: 'Layer 4 (Browser)' };
           
@@ -124,13 +124,30 @@ export class EngineService {
   /**
    * Validates if the extracted data meets the minimum requirements
    */
-  private isValidExtraction(data: TiktokExtraction): boolean {
-    if (data.type === 'video') {
-      return !!(data.video && (data.cover || data.author));
-    } else if (data.type === 'image') {
-      return !!(data.images && data.images.length > 0 && (data.cover || data.author));
+  private isValidExtraction(data: TiktokExtraction, url: string): boolean {
+    const isSlideshowUrl = url.includes('/photo/') || url.includes('/slideshow/');
+    const isSlideshowData = !!(data.images && data.images.length > 1);
+    const isSlideshow = isSlideshowUrl || isSlideshowData;
+    
+    const hasVideo = !!(data.video && data.video.length > 20);
+    const hasImages = !!(data.images && data.images.length > 0);
+    const hasMeta = !!(data.cover || data.author);
+    
+    // For slideshows, we strongly desire the video (MP4 render).
+    // If it's a slideshow but we only have images and NO video, we don't consider it 
+    // a "final" success yet, allowing it to move to Layer 4 (Browser) to find the MP4.
+    if (isSlideshow && !hasVideo && hasImages) {
+      logger.info('[Engine] Detected slideshow without MP4. Forcing next layer...');
+      return false; 
     }
-    return false;
+
+    // Standard video: must have video link
+    if (!isSlideshow && !hasVideo) {
+      return false;
+    }
+
+    // Valid if it has either video OR images, plus minimal metadata
+    return (hasVideo || hasImages) && hasMeta;
   }
 }
 

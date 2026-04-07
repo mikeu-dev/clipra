@@ -81,17 +81,23 @@ export class ScrapeController {
 
       const d = result.data;
       
+      // CRITICAL: If video URL is missing even after all layers, return failure 
+      // so the frontend can failover to secondary API (TikWM) for the MP4 link.
+      if (!d.video && !d.hdplay) {
+        return res.status(200).json({
+          code: -1,
+          msg: 'Video link missing. Triggering failover.',
+          processed_time: (Date.now() - startTime) / 1000
+        });
+      }
+
       const baseUrl = `${req.protocol}://${req.get('host')}/scrape/download`;
       const proxify = (url: string | undefined, type: string = 'MP4', ua?: string) => {
         if (!url) return '';
         // If it's already a proxied URL or doesn't look like a TikTok CDN URL, return as is
-        if (!url.includes('tiktok') && !url.includes('ttwstatic')) return url; 
+        if (url.includes(baseUrl) || !url.includes('tiktokcdn.com')) return url;
         
-        let finalUrl = `${baseUrl}?url=${encodeURIComponent(url)}&type=${type}`;
-        if (ua) {
-          finalUrl += `&ua=${encodeURIComponent(ua)}`;
-        }
-        return finalUrl;
+        return `${baseUrl}?url=${encodeURIComponent(url)}&type=${type}${ua ? `&ua=${encodeURIComponent(ua)}` : ''}`;
       };
 
       // Map Clipra TiktokExtraction to TikWM VideoData
@@ -101,6 +107,7 @@ export class ScrapeController {
         processed_time: (Date.now() - startTime) / 1000,
         data: {
           id: d.id,
+          type: 0, // 0 = Video, 1 = Images in TikWM style. Always use 0 to show download button.
           title: d.caption,
           cover: d.cover,
           origin_cover: d.cover,
