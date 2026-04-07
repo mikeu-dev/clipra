@@ -111,11 +111,49 @@ export class BrowserProvider {
     if (!this.browserInstance) return;
     const currentSize = this.pagePool.length;
     for (let i = currentSize; i < this.MAX_POOL_SIZE; i++) {
-        const page = await this.browserInstance.newPage();
-        await this.optimizePage(page);
-        this.pagePool.push(page);
+        try {
+            const page = await this.browserInstance.newPage();
+            await this.optimizePage(page);
+            // Navigate to TikTok to load signing scripts (acrawler.js)
+            logger.info(`[Pool] Warming up page ${i+1}/${this.MAX_POOL_SIZE} on TikTok...`);
+            await page.goto('https://www.tiktok.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+            this.pagePool.push(page);
+        } catch (e: any) {
+            logger.warn(`Failed to warm up page: ${e.message}`);
+        }
     }
     logger.info(`[Pool] Pre-filled pool with ${this.pagePool.length} warm pages.`);
+  }
+
+  /**
+   * Real Signer Service: Generates X-Bogus and extracts security tokens
+   */
+  public static async signUrl(targetUrl: string): Promise<{ xBogus: string, msToken: string, ttwid: string }> {
+    const page = await this.getWarmPage();
+    try {
+        // Ensure we are on TikTok domain for scripts to be available
+        const currentUrl = page.url();
+        if (!currentUrl.includes('tiktok.com')) {
+            await page.goto('https://www.tiktok.com/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+        }
+
+        // 1. Generate X-Bogus via internal TikTok script
+        const xBogus = await page.evaluate((url) => {
+            if (typeof (window as any).byted_acrawler?.frontierSign === 'function') {
+                return (window as any).byted_acrawler.frontierSign({ url });
+            }
+            return '';
+        }, targetUrl);
+
+        // 2. Fetch required cookies (msToken, ttwid)
+        const cookies = await page.cookies();
+        const msToken = cookies.find(c => c.name === 'msToken')?.value || '';
+        const ttwid = cookies.find(c => c.name === 'ttwid')?.value || '';
+
+        return { xBogus, msToken, ttwid };
+    } finally {
+        await this.releasePage(page);
+    }
   }
 
   /**
@@ -124,17 +162,17 @@ export class BrowserProvider {
   public static async getWarmPage(): Promise<Page> {
     const browser = await this.launch();
     
+    // Sort pool to get the longest running/most stable page if needed
     if (this.pagePool.length > 0) {
         const page = this.pagePool.pop()!;
         if (!page.isClosed()) {
-            logger.info(`[Pool] Reusing warm page (${this.pagePool.length} remaining in pool).`);
             return page;
         }
     }
 
-    logger.info('[Pool] No warm pages available, creating new tab...');
     const page = await browser.newPage();
     await this.optimizePage(page);
+    await page.goto('https://www.tiktok.com/', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
     return page;
   }
 
@@ -146,19 +184,10 @@ export class BrowserProvider {
 
     if (this.pagePool.length < this.MAX_POOL_SIZE) {
         try {
-            // Quick cleanup to prevent state leakage
-            await page.evaluate(() => {
-                try {
-                    localStorage.clear();
-                    sessionStorage.clear();
-                } catch (e) {}
-            });
+            // No full clear of localStorage to keep session warm for signing
             await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {});
-            
             this.pagePool.push(page);
-            logger.info(`[Pool] Page released back to pool (${this.pagePool.length}/${this.MAX_POOL_SIZE}).`);
         } catch (e) {
-            logger.warn('Failed to release page to pool, closing instead.');
             await page.close().catch(() => {});
         }
     } else {

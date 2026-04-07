@@ -15,38 +15,34 @@ export class GraphqlExtractor {
 
       logger.info(`[GraphQL] Starting extraction for ID: ${videoId}`);
 
-      // 1. Get Tokens from Warm Browser
-      const page = await BrowserProvider.getWarmPage();
-      const tokens: any = await page.evaluate(async (id) => {
-        // This is a simplified mock of how we'd get real tokens in a real scenario
-        // In reality, we'd trigger a small fetch or use a JS generator
-        return {
-          msToken: (window as any).msToken || '',
-          bogus: 'dummy_bogus', // We'd use a real generator here
-          signature: 'dummy_signature'
-        };
-      }, videoId);
-
-      // Release page back to pool immediately after getting tokens
-      await BrowserProvider.releasePage(page);
-
-      // 2. Perform GraphQL Request
-      const params = new URLSearchParams({
+      // 1. Get REAL Tokens from Signer Service
+      const paramsBeforeSign = new URLSearchParams({
         itemId: videoId,
         aid: '1988', 
         app_name: 'tiktok_web',
-        device_id: '7300000000000000000',
-        msToken: tokens.msToken,
-        X_Bogus: tokens.bogus,
-        _signature: tokens.signature
+        device_id: '7300000000000000000'
       });
+      const baseUrl = `https://www.tiktok.com/api/item/detail/?${paramsBeforeSign.toString()}`;
+      
+      logger.info(`[GraphQL] Fetching real signature for URL...`);
+      const { xBogus, msToken, ttwid } = await BrowserProvider.signUrl(baseUrl);
 
-      const apiUrl = `https://www.tiktok.com/api/item/detail/?${params.toString()}`;
+      if (!xBogus) {
+          logger.warn('[GraphQL] Failed to generate X-Bogus, API might reject request.');
+      }
+
+      // 2. Perform Signed GraphQL Request
+      const finalParams = new URLSearchParams(paramsBeforeSign);
+      finalParams.append('msToken', msToken);
+      finalParams.append('X-Bogus', xBogus);
+
+      const apiUrl = `https://www.tiktok.com/api/item/detail/?${finalParams.toString()}`;
       
       const response = await httpClient.client.get(apiUrl, {
         headers: {
           'Referer': 'https://www.tiktok.com/',
-          'Accept': 'application/json, text/plain, */*'
+          'Accept': 'application/json, text/plain, */*',
+          'Cookie': `msToken=${msToken}; ttwid=${ttwid};`
         }
       });
 
