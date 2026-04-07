@@ -1,4 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
+import http from 'http';
+import https from 'https';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { env } from '../utils/env';
 import logger from '../utils/logger';
@@ -18,14 +20,22 @@ export class HttpClient {
 
   constructor() {
     const proxyUrl = env.PROXY_URL;
-    const httpsAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+    
+    // Configure Persistent Connections (Keep-Alive)
+    const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 100 });
+    const httpsAgent = proxyUrl 
+      ? new HttpsProxyAgent(proxyUrl) 
+      : new https.Agent({ keepAlive: true, maxSockets: 100 });
 
     if (proxyUrl) {
       logger.info('HttpClient initialized with Proxy support.');
+    } else {
+      logger.info('HttpClient initialized with Keep-Alive support.');
     }
 
     this.client = axios.create({
-      timeout: 15000,
+      timeout: 10000, // Reduced from 15s to 10s for better responsiveness
+      httpAgent: httpAgent,
       httpsAgent: httpsAgent,
       proxy: false,
     });

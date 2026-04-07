@@ -24,24 +24,21 @@ export class ApiExtractor {
         return { success: false, error: 'Could not extract Video ID from URL' };
       }
 
-      // 3. Call TikTok internal feed API with Session Support
-      // 3. Call TikTok internal feed API with Session Support and App Params
+      // 3. Call TikTok internal feed API with Session Support and Minimal App Params
       const params = new URLSearchParams({
         aweme_id: videoId,
-        version_code: '26.2.0',
-        address_book_access: '0',
         aid: '1233',
-        app_name: 'musical_ly',
         device_id: Math.floor(Math.random() * 1e19).toString(),
+        version_code: '26.2.0',
         device_platform: 'iphone',
-        device_type: 'iPhone13,4',
-        iid: Math.floor(Math.random() * 1e19).toString(),
+        app_name: 'musical_ly',
       });
 
       const apiUrl = `https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?${params.toString()}`;
       
       const headers: any = {
-        'User-Agent': 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet'
+        'User-Agent': 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet',
+        'Accept-Encoding': 'gzip, deflate, br'
       };
 
       // Try to inject existing session cookies

@@ -42,30 +42,44 @@ export class EngineService {
       }
 
       try {
-        // Fast Track: If URL already contains Video ID, skip HTML extraction and go straight to API
+        // Fast Track (Optimized Phase 2): Race Layer 1 and Layer 3 in Parallel
         const initialVideoId = Helpers.extractVideoId(url);
+        
         if (initialVideoId) {
-          logger.info(`[Attempt ${attempt}] Video ID detected in URL. Skipping to Layer 3 (API)...`);
-          const apiResult = await this.apiExtractor.extract(url);
-          if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data)) {
-            const finalResult: StrategyResult = { ...apiResult, layer: 'Layer 3 (Fast-Track API)' };
+          logger.info(`[Attempt ${attempt}] Video ID detected. Racing Layer 1 (HTML) & Layer 3 (API) in parallel...`);
+          
+          // Racing both methods to see which one is faster
+          const results = await Promise.allSettled([
+            this.htmlExtractor.extract(url),
+            this.apiExtractor.extract(url)
+          ]);
+
+          // Find the first successful and valid result
+          for (let i = 0; i < results.length; i++) {
+            const res = results[i];
+            if (res.status === 'fulfilled' && res.value.success && res.value.data && this.isValidExtraction(res.value.data)) {
+              const layerName = i === 0 ? 'Layer 1 (HTML-Race)' : 'Layer 3 (API-Race)';
+              logger.info(`[Success] ${layerName} won the race.`);
+              const finalResult: StrategyResult = { ...res.value, layer: layerName };
+              cacheService.set(cacheKey, finalResult);
+              return finalResult;
+            }
+          }
+          
+          logger.warn(`[Attempt ${attempt}] Both Parallel Layers failed. Proceeding to fallback logic.`);
+        } else {
+          // If no initial video ID, we must go sequential or expand URL first
+          // Strategy 1: Fast HTTP + HTML/Hydration Extraction
+          logger.info(`[Attempt ${attempt}] Layer 1 (HTTP/Hydration) started...`);
+          const httpResult = await this.htmlExtractor.extract(url);
+          
+          if (httpResult.success && httpResult.data && this.isValidExtraction(httpResult.data)) {
+            const finalResult: StrategyResult = { ...httpResult, layer: 'Layer 1 (HTML/Hydration)' };
             cacheService.set(cacheKey, finalResult);
             return finalResult;
           }
-        }
 
-        // Strategy 1: Fast HTTP + HTML/Hydration Extraction
-        logger.info(`[Attempt ${attempt}] Layer 1 (HTTP/Hydration) started...`);
-        const httpResult = await this.htmlExtractor.extract(url);
-        
-        if (httpResult.success && httpResult.data && this.isValidExtraction(httpResult.data)) {
-          const finalResult: StrategyResult = { ...httpResult, layer: 'Layer 1 (HTML/Hydration)' };
-          cacheService.set(cacheKey, finalResult);
-          return finalResult;
-        }
-
-        // Strategy 2: Reverse Engineered API Extraction (Layer 3) - Only if not tried in Fast-Track
-        if (!initialVideoId) {
+          // Strategy 2: API Extraction
           logger.info(`[Attempt ${attempt}] Layer 3 (Internal API) started...`);
           const apiResult = await this.apiExtractor.extract(url);
           
