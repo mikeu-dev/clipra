@@ -11,17 +11,34 @@ export class ApiExtractor {
    */
   public async extract(url: string): Promise<ExtractionResult> {
     try {
-      // 1. Resolve redirect if shortlink
-      const finalUrl = await Helpers.expandUrl(url);
+      // 1. Try to extract video ID directly first (to save expandUrl call)
+      let videoId = Helpers.extractVideoId(url);
+      
+      // 2. Resolve redirect if no video ID found yet (shortlink)
+      if (!videoId) {
+        const finalUrl = await Helpers.expandUrl(url);
+        videoId = Helpers.extractVideoId(finalUrl);
+      }
 
-      // 2. Extract video ID
-      const videoId = Helpers.extractVideoId(finalUrl);
       if (!videoId) {
         return { success: false, error: 'Could not extract Video ID from URL' };
       }
 
       // 3. Call TikTok internal feed API with Session Support
-      const apiUrl = `https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?aweme_id=${videoId}`;
+      // 3. Call TikTok internal feed API with Session Support and App Params
+      const params = new URLSearchParams({
+        aweme_id: videoId,
+        version_code: '26.2.0',
+        address_book_access: '0',
+        aid: '1233',
+        app_name: 'musical_ly',
+        device_id: Math.floor(Math.random() * 1e19).toString(),
+        device_platform: 'iphone',
+        device_type: 'iPhone13,4',
+        iid: Math.floor(Math.random() * 1e19).toString(),
+      });
+
+      const apiUrl = `https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?${params.toString()}`;
       
       const headers: any = {
         'User-Agent': 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet'

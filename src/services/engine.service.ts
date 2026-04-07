@@ -3,6 +3,7 @@ import { HtmlExtractor } from '../extractors/html.extractor';
 import { ApiExtractor } from '../extractors/api.extractor';
 import { BrowserExtractor } from '../extractors/browser.extractor';
 import { cacheService } from '../utils/cache';
+import { Helpers } from '../utils/helpers';
 import logger from '../utils/logger';
 
 export class EngineService {
@@ -35,52 +36,44 @@ export class EngineService {
 
     while (attempt <= retryCount) {
       if (attempt > 0) {
-        // Exponential backoff: 2s, 4s, 8s...
         const delay = Math.pow(2, attempt) * 1000;
         logger.info(`[Retry ${attempt}/${retryCount}] Waiting ${delay}ms before next attempt for ${url}...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
       try {
+        // Fast Track: If URL already contains Video ID, skip HTML extraction and go straight to API
+        const initialVideoId = Helpers.extractVideoId(url);
+        if (initialVideoId) {
+          logger.info(`[Attempt ${attempt}] Video ID detected in URL. Skipping to Layer 3 (API)...`);
+          const apiResult = await this.apiExtractor.extract(url);
+          if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data)) {
+            const finalResult: StrategyResult = { ...apiResult, layer: 'Layer 3 (Fast-Track API)' };
+            cacheService.set(cacheKey, finalResult);
+            return finalResult;
+          }
+        }
+
         // Strategy 1: Fast HTTP + HTML/Hydration Extraction
         logger.info(`[Attempt ${attempt}] Layer 1 (HTTP/Hydration) started...`);
         const httpResult = await this.htmlExtractor.extract(url);
         
         if (httpResult.success && httpResult.data && this.isValidExtraction(httpResult.data)) {
-          logger.info(`[Success] Data extracted via Layer 1 on attempt ${attempt}`);
           const finalResult: StrategyResult = { ...httpResult, layer: 'Layer 1 (HTML/Hydration)' };
-          
-          // Save to cache before returning
           cacheService.set(cacheKey, finalResult);
-          
           return finalResult;
-        }
-        
-        // Check for specific "10204" or similar blocking indicators
-        if (httpResult.error?.includes('10204') || httpResult.error?.includes('unavailable')) {
-          logger.warn(`Layer 1 suspected blocking (10204/Unavailable). Proceeding to deeper layers.`);
-        } else {
-          logger.warn(`Layer 1 failed: ${httpResult.error}`);
         }
 
-        // Strategy 2: Reverse Engineered API Extraction (Layer 3)
-        logger.info(`[Attempt ${attempt}] Layer 3 (Internal API) started...`);
-        const apiResult = await this.apiExtractor.extract(url);
-        
-        if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data)) {
-          logger.info(`[Success] Data extracted via Layer 3 on attempt ${attempt}`);
-          const finalResult: StrategyResult = { ...apiResult, layer: 'Layer 3 (Internal API)' };
+        // Strategy 2: Reverse Engineered API Extraction (Layer 3) - Only if not tried in Fast-Track
+        if (!initialVideoId) {
+          logger.info(`[Attempt ${attempt}] Layer 3 (Internal API) started...`);
+          const apiResult = await this.apiExtractor.extract(url);
           
-          // Save to cache before returning
-          cacheService.set(cacheKey, finalResult);
-          
-          return finalResult;
-        }
-        
-        if (apiResult.error?.includes('10204')) {
-          logger.warn(`Layer 3 returned 10204 (IP/Session Blocked). Moving to Browser Fallback.`);
-        } else {
-          logger.warn(`Layer 3 failed: ${apiResult.error}`);
+          if (apiResult.success && apiResult.data && this.isValidExtraction(apiResult.data)) {
+            const finalResult: StrategyResult = { ...apiResult, layer: 'Layer 3 (Internal API)' };
+            cacheService.set(cacheKey, finalResult);
+            return finalResult;
+          }
         }
 
         // Strategy 3: (Fallback) Headless Browser Automation (Layer 4)

@@ -6,22 +6,35 @@ export class Helpers {
    * Mengambil URL akhir dari link pendek (seperti vm.tiktok.com atau vt.tiktok.com)
    * Menyelesaikan redirection.
    */
-  public static async expandUrl(url: string): Promise<string> {
+  public static async asyncExpandUrl(url: string, depth: number = 0): Promise<string> {
+    if (depth > 5) return url;
     try {
-      if (url.includes('vm.tiktok.com') || url.includes('vt.tiktok.com') || url.includes('t.co')) {
-        // Axios will follow redirects by default up to maxRedirects
-        // Let's get the final URL
-        const response = await httpClient.client.get(url, {
-          maxRedirects: 5,
-          validateStatus: (status) => status < 400
-        });
-        return response.request.res.responseUrl || url;
+      const response = await httpClient.client.get(url, {
+        maxRedirects: 0,
+        validateStatus: (status) => status >= 300 && status < 400
+      });
+      const location = response.headers.location;
+      if (location) {
+        // If relative path
+        const nextUrl = location.startsWith('http') ? location : new URL(location, url).href;
+        return this.asyncExpandUrl(nextUrl, depth + 1);
       }
       return url;
     } catch (e: any) {
-      logger.warn(`Failed to expand URL ${url}: ${e.message}`);
+      if (e.response && e.response.status >= 300 && e.response.status < 400) {
+        const location = e.response.headers.location;
+        if (location) {
+          const nextUrl = location.startsWith('http') ? location : new URL(location, url).href;
+          return this.asyncExpandUrl(nextUrl, depth + 1);
+        }
+      }
       return url;
     }
+  }
+
+  public static async expandUrl(url: string): Promise<string> {
+    if (!url.includes('tiktok.com') && !url.includes('t.co')) return url;
+    return this.asyncExpandUrl(url);
   }
 
   /**
