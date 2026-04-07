@@ -37,7 +37,7 @@ export class ApiExtractor {
       const apiUrl = `https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?${params.toString()}`;
       
       const headers: any = {
-        'User-Agent': 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet',
+        'User-Agent': httpClient.constructor.name === 'HttpClient' ? (httpClient as any).constructor.MOBILE_UA || 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet' : 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet',
         'Accept-Encoding': 'gzip, deflate, br'
       };
 
@@ -50,6 +50,23 @@ export class ApiExtractor {
       if (awemeList && awemeList.length > 0) {
         const item = awemeList[0];
         
+        // Helper to find the best video from bit_rate (important for slideshows which often have a black placeholder as default)
+        const getBestVideo = (videoObj: any) => {
+          if (!videoObj) return '';
+          if (videoObj.bit_rate && videoObj.bit_rate.length > 0) {
+            // Sort by data_size descending to find the actual rendered slideshow
+            const sorted = [...videoObj.bit_rate].sort((a, b) => (b.play_addr?.data_size || 0) - (a.play_addr?.data_size || 0));
+            // Find the first one with a valid URL
+            for (const br of sorted) {
+              const url = br.play_addr?.url_list?.[0];
+              if (url && !url.includes('placeholder')) return url;
+            }
+          }
+          return videoObj.play_addr?.url_list?.[0] || videoObj.download_addr?.url_list?.[0] || '';
+        };
+
+        const bestVideoUrl = getBestVideo(item.video);
+
         // Handle image_post_info if exists (Slideshow)
         if (item.image_post_info && item.image_post_info.images) {
           return {
@@ -58,9 +75,9 @@ export class ApiExtractor {
               id: item.aweme_id,
               type: 'image',
               images: item.image_post_info.images.map((img: any) => img.display_image?.url_list?.[0] || img.owner_watermark_image?.url_list?.[0] || ''),
-              video: item.video?.play_addr?.url_list?.[0] || item.video?.download_addr?.url_list?.[0] || '',
-              hdplay: item.video?.play_addr?.url_list?.[0] || '',
-              wmplay: item.video?.download_addr?.url_list?.[0] || '',
+              video: bestVideoUrl,
+              hdplay: bestVideoUrl,
+              wmplay: bestVideoUrl,
               cover: item.video?.cover?.url_list?.[0] || '',
               caption: item.desc || '',
               author: item.author?.nickname || item.author?.unique_id || '',
@@ -75,9 +92,9 @@ export class ApiExtractor {
           data: {
             id: item.aweme_id,
             type: 'video',
-            video: item.video?.play_addr?.url_list?.[0] || item.video?.download_addr?.url_list?.[0] || '',
-            hdplay: item.video?.play_addr?.url_list?.[0] || '',
-            wmplay: item.video?.download_addr?.url_list?.[0] || '',
+            video: bestVideoUrl,
+            hdplay: item.video?.play_addr?.url_list?.[0] || bestVideoUrl,
+            wmplay: item.video?.download_addr?.url_list?.[0] || bestVideoUrl,
             cover: item.video?.cover?.url_list?.[0] || '',
             caption: item.desc || '',
             author: item.author?.nickname || item.author?.unique_id || '',

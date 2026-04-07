@@ -112,7 +112,8 @@ export class HtmlExtractor {
       
       const defaultScope = parsed['__DEFAULT_SCOPE__'] || parsed;
       const webappVideoDetail = defaultScope['webapp.video-detail'] || {};
-      const itemInfo = webappVideoDetail.itemInfo?.itemStruct || {};
+      const webappPhotoModeDetail = defaultScope['webapp.photomode-detail'] || {};
+      const itemInfo = webappVideoDetail.itemInfo?.itemStruct || webappPhotoModeDetail.itemInfo?.itemStruct || {};
       
       if (!itemInfo) return null;
 
