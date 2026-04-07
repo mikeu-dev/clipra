@@ -1,4 +1,4 @@
-import { ExtractionResult } from '../types';
+import { ExtractionResult, TiktokExtraction } from '../types';
 import httpClient from '../providers/httpClient';
 import { SessionProvider } from '../providers/sessionProvider';
 import { Helpers } from '../utils/helpers';
@@ -24,7 +24,7 @@ export class ApiExtractor {
         return { success: false, error: 'Could not extract Video ID from URL' };
       }
 
-      // 3. Call TikTok internal feed API with Session Support and Minimal App Params
+      // 3. Call TikTok internal feed API with Session Support
       const params = new URLSearchParams({
         aweme_id: videoId,
         aid: '1233',
@@ -37,7 +37,7 @@ export class ApiExtractor {
       const apiUrl = `https://api16-normal-c-useast1a.tiktokv.com/aweme/v1/feed/?${params.toString()}`;
       
       const headers: any = {
-        'User-Agent': httpClient.constructor.name === 'HttpClient' ? (httpClient as any).constructor.MOBILE_UA || 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet' : 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet',
+        'User-Agent': 'TikTok 26.2.0 rv:262018 (iPhone; iOS 14.4.2; en_US) Cronet',
         'Accept-Encoding': 'gzip, deflate, br'
       };
 
@@ -47,80 +47,58 @@ export class ApiExtractor {
       const response = await httpClient.client.get(apiUrl, { headers });
 
       const awemeList = response.data?.aweme_list;
-      if (awemeList && awemeList.length > 0) {
-        const item = awemeList[0];
-        
-        // Helper to find the best video from bit_rate (important for slideshows which often have a black placeholder as default)
-        const getBestVideo = (videoObj: any, isPhoto: boolean) => {
-          if (!videoObj) return '';
-          
-          if (videoObj.bit_rate && videoObj.bit_rate.length > 0) {
-            logger.info(`[API] Found ${videoObj.bit_rate.length} video variants in bit_rate.`);
-            
-            // Filter and Sort: Look for non-placeholder videos with actual content size
-            const validVariants = videoObj.bit_rate.filter((br: any) => {
-              const url = br.play_addr?.url_list?.[0] || '';
-              const size = br.play_addr?.data_size || 0;
-              // Slideshows usually have a reasonable data_size. Placeholders are tiny or 0.
-              return url && !url.includes('placeholder') && size > 30000; // > 30KB is a safe bet for a real slideshow
-            });
-
-            if (validVariants.length > 0) {
-              const best = validVariants.sort((a: any, b: any) => (b.play_addr?.data_size || 0) - (a.play_addr?.data_size || 0))[0];
-              const bestUrl = best.play_addr?.url_list?.[0];
-              logger.info(`[API] Selected Best Video Variant (${Math.round(best.play_addr?.data_size / 1024)} KB): ${bestUrl.substring(0, 50)}...`);
-              return bestUrl;
-            }
-          }
-          
-          const defaultUrl = videoObj.play_addr?.url_list?.[0] || videoObj.download_addr?.url_list?.[0] || '';
-          if (isPhoto) {
-             logger.warn(`[API] No clear slideshow found in bit_rate. Falling back to default: ${defaultUrl.substring(0, 50)}...`);
-          }
-          return defaultUrl;
-        };
-
-        const isPhoto = !!(item.image_post_info && item.image_post_info.images);
-        const bestVideoUrl = getBestVideo(item.video, isPhoto);
-
-        // Handle image_post_info if exists (Slideshow)
-        if (item.image_post_info && item.image_post_info.images) {
-          return {
-            success: true,
-            data: {
-              id: item.aweme_id,
-              type: 'image',
-              images: item.image_post_info.images.map((img: any) => img.display_image?.url_list?.[0] || img.owner_watermark_image?.url_list?.[0] || ''),
-              video: bestVideoUrl,
-              hdplay: bestVideoUrl,
-              wmplay: bestVideoUrl,
-              cover: item.video?.cover?.url_list?.[0] || '',
-              caption: item.desc || '',
-              author: item.author?.nickname || item.author?.unique_id || '',
-              music: item.music?.play_url?.url_list?.[0] || '',
-              userAgent: headers['User-Agent']
-            }
-          };
-        }
-
-        return {
-          success: true,
-          data: {
-            id: item.aweme_id,
-            type: 'video',
-            video: bestVideoUrl,
-            hdplay: item.video?.play_addr?.url_list?.[0] || bestVideoUrl,
-            wmplay: item.video?.download_addr?.url_list?.[0] || bestVideoUrl,
-            cover: item.video?.cover?.url_list?.[0] || '',
-            caption: item.desc || '',
-            author: item.author?.nickname || item.author?.unique_id || '',
-            music: item.music?.play_url?.url_list?.[0] || '',
-            userAgent: headers['User-Agent']
-          }
-        };
+      if (!awemeList || awemeList.length === 0) {
+        return { success: false, error: 'API returned successful status but no aweme items found' };
       }
 
-      return { success: false, error: 'API returned successful status but no aweme items found' };
+      const item = awemeList[0];
+      
+      // Determine if it's a slideshow/photo post
+      const images: string[] = [];
+      if (item.image_post_info?.images) {
+        item.image_post_info.images.forEach((img: any) => {
+          const url = img.display_image?.url_list?.[0] || img.owner_watermark_image?.url_list?.[0];
+          if (url) images.push(url);
+        });
+      }
+
+      // Find the best video (might be a slideshow rendered video)
+      let bestVideoUrl = '';
+      if (item.video) {
+        if (item.video.bit_rate && item.video.bit_rate.length > 0) {
+          // Filter out tiny black placeholders (>30KB)
+          const validVariants = item.video.bit_rate.filter((br: any) => {
+            const size = br.play_addr?.data_size || 0;
+            return size > 30000;
+          });
+
+          if (validVariants.length > 0) {
+            const best = validVariants.sort((a: any, b: any) => (b.play_addr?.data_size || 0) - (a.play_addr?.data_size || 0))[0];
+            bestVideoUrl = best.play_addr?.url_list?.[0];
+          }
+        }
+        
+        if (!bestVideoUrl) {
+          bestVideoUrl = item.video.play_addr?.url_list?.[0] || item.video.download_addr?.url_list?.[0] || '';
+        }
+      }
+
+      const result: TiktokExtraction = {
+        id: item.aweme_id || videoId,
+        type: images.length > 0 ? 'image' : 'video',
+        video: bestVideoUrl,
+        hdplay: bestVideoUrl,
+        wmplay: bestVideoUrl,
+        images: images,
+        cover: item.video?.cover?.url_list?.[0] || '',
+        caption: item.desc || '',
+        author: item.author?.unique_id || item.author?.nickname || '',
+        music: item.music?.play_url?.url_list?.[0] || '',
+        userAgent: headers['User-Agent']
+      };
+
+      return { success: true, data: result };
+
     } catch (e: any) {
       logger.error(`API Extraction Error: ${e.message}`);
       return { success: false, error: e.message };
