@@ -8,6 +8,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.preprocess((val) => val ?? '3000', z.coerce.number().default(3000)),
   PROXY_URL: z.string().optional(),
+  KERNEL_API_KEY: z.string().optional(),
   BROWSER_HEADLESS: z.preprocess(
     (val) => val ?? 'true',
     z.string().transform((val) => val !== 'false')

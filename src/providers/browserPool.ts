@@ -1,6 +1,8 @@
-import puppeteer from 'puppeteer-extra';
+import puppeteerExtra from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { Browser, Page } from 'puppeteer';
+import puppeteerCore, { Browser, Page } from 'puppeteer-core';
+import puppeteerLocal from 'puppeteer';
+import Kernel from '@onkernel/sdk';
 import logger from '../utils/logger';
 import dotenv from 'dotenv';
 import { env } from '../utils/env';
@@ -8,13 +10,30 @@ import { env } from '../utils/env';
 dotenv.config();
 
 // Apply stealth plugin
-puppeteer.use(StealthPlugin());
+puppeteerExtra.use(StealthPlugin());
 
 export class BrowserProvider {
   /**
    * Launch a browser with optimized arguments and Proxy support
+   * Supports Kernel.sh for Vercel/Production environments
    */
   public static async launch(): Promise<Browser> {
+    const kernelApiKey = env.KERNEL_API_KEY;
+
+    if (kernelApiKey) {
+      logger.info('Initializing Browser via Kernel.sh (Managed Cloud Browser)...');
+      try {
+        const kernel = new Kernel({ apiKey: kernelApiKey });
+        const kernelBrowser = await kernel.browsers.create();
+        
+        return await puppeteerCore.connect({
+          browserWSEndpoint: kernelBrowser.cdp_ws_url,
+        }) as unknown as Browser;
+      } catch (e: any) {
+        logger.error(`Kernel.sh Connection Failed: ${e.message}. Falling back to local...`);
+      }
+    }
+
     const proxyUrl = env.PROXY_URL;
     const args = [
       '--no-sandbox',
@@ -25,13 +44,14 @@ export class BrowserProvider {
     ];
 
     if (proxyUrl) {
-      logger.info('Launching Browser with Proxy support.');
+      logger.info('Launching Local Browser with Proxy support.');
       args.push(`--proxy-server=${proxyUrl}`);
     }
 
     const isHeadless = env.BROWSER_HEADLESS;
 
-    return await puppeteer.launch({
+    // Use puppeteer-extra for local stealth
+    return await (puppeteerExtra as any).launch({
       headless: isHeadless,
       args: args,
     });
