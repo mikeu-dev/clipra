@@ -20,7 +20,7 @@ export class BrowserProvider {
   public static async launch(): Promise<Browser> {
     const kernelApiKey = env.KERNEL_API_KEY;
 
-    if (kernelApiKey) {
+    if (kernelApiKey && env.NODE_ENV === 'production') {
       logger.info('Initializing Browser via Kernel.sh (Managed Cloud Browser)...');
       try {
         const kernel = new Kernel({ apiKey: kernelApiKey });
