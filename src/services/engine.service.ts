@@ -11,6 +11,8 @@ export class EngineService {
   private apiExtractor: ApiExtractor;
   private browserExtractor: BrowserExtractor;
 
+  private inFlightRequests = new Map<string, Promise<StrategyResult>>();
+
   constructor() {
     this.htmlExtractor = new HtmlExtractor();
     this.apiExtractor = new ApiExtractor();
@@ -31,6 +33,31 @@ export class EngineService {
       return { ...cachedResult, isCached: true };
     }
 
+    // 2. Request Deduplication (In-Flight Locking)
+    // If a request for the same URL is already processing, wait for it
+    if (this.inFlightRequests.has(url)) {
+        logger.info(`[Engine] DEDUPE: Request for ${url} is already in-flight. Waiting...`);
+        return this.inFlightRequests.get(url)!;
+    }
+
+    // Create a new promise for this request and store it
+    const extractionPromise = (async () => {
+        try {
+            return await this.performExtraction(url, retryCount, cacheKey);
+        } finally {
+            // Clean up after completion
+            this.inFlightRequests.delete(url);
+        }
+    })();
+
+    this.inFlightRequests.set(url, extractionPromise);
+    return extractionPromise;
+  }
+
+  /**
+   * Actual extraction logic separated for deduplication handling
+   */
+  private async performExtraction(url: string, retryCount: number, cacheKey: string): Promise<StrategyResult> {
     let attempt = 0;
     let lastError = '';
 
