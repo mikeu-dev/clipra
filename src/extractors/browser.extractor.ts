@@ -1,3 +1,4 @@
+import { Page } from 'puppeteer-core';
 import { BrowserProvider } from '../providers/browserPool';
 import { SessionProvider } from '../providers/sessionProvider';
 import { ExtractionResult, TiktokExtraction } from '../types';
@@ -9,12 +10,11 @@ export class BrowserExtractor {
    * Main entry for Layer 4 extraction (Headless Browser)
    */
   public async extract(url: string): Promise<ExtractionResult> {
-    let browser = null;
+    let page: Page | null = null;
     try {
       logger.info(`[Browser] Starting extraction for: ${url}`);
-      browser = await BrowserProvider.launch();
-      const page = await browser.newPage();
-      await BrowserProvider.optimizePage(page).catch(e => logger.warn(`Optimization failed: ${e.message}`));
+      page = await BrowserProvider.getWarmPage();
+      const currentBrowser = page.browser();
 
       const desktopUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
       await page.setUserAgent(desktopUA);
@@ -185,7 +185,7 @@ export class BrowserExtractor {
       logger.error(`[Browser] Critical Catch: ${e.message}`);
       return { success: false, error: e.message || 'Unknown browser error' };
     } finally {
-      if (browser) await browser.close().catch(() => {});
+      if (page) await BrowserProvider.releasePage(page).catch(() => {});
     }
   }
 }

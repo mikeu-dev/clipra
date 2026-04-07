@@ -11,9 +11,12 @@ dotenv.config();
 
 // Apply stealth plugin
 puppeteerExtra.use(StealthPlugin());
+
 export class BrowserProvider {
   private static browserInstance: Browser | null = null;
   private static launchPromise: Promise<Browser> | null = null;
+  private static pagePool: Page[] = [];
+  private static readonly MAX_POOL_SIZE = 3;
 
   /**
    * Launch or Reuse a browser with optimized arguments and Proxy support
@@ -29,6 +32,7 @@ export class BrowserProvider {
         } catch (e) {
             logger.warn('Stored browser instance is unresponsive, launching new one...');
             this.browserInstance = null;
+            this.pagePool = []; // Reset pool if browser is dead
         }
     }
 
@@ -84,6 +88,9 @@ export class BrowserProvider {
           userAgent: desktopUA,
         });
 
+        // Initialize pool in background
+        this.fillPool().catch(e => logger.warn(`Failed to pre-fill pool: ${e.message}`));
+
         return this.browserInstance!;
     })();
 
@@ -94,6 +101,68 @@ export class BrowserProvider {
     } catch (e) {
         this.launchPromise = null;
         throw e;
+    }
+  }
+
+  /**
+   * Pre-fills the pool with ready-to-use pages
+   */
+  private static async fillPool() {
+    if (!this.browserInstance) return;
+    const currentSize = this.pagePool.length;
+    for (let i = currentSize; i < this.MAX_POOL_SIZE; i++) {
+        const page = await this.browserInstance.newPage();
+        await this.optimizePage(page);
+        this.pagePool.push(page);
+    }
+    logger.info(`[Pool] Pre-filled pool with ${this.pagePool.length} warm pages.`);
+  }
+
+  /**
+   * Gets a warm page from the pool or creates a new one
+   */
+  public static async getWarmPage(): Promise<Page> {
+    const browser = await this.launch();
+    
+    if (this.pagePool.length > 0) {
+        const page = this.pagePool.pop()!;
+        if (!page.isClosed()) {
+            logger.info(`[Pool] Reusing warm page (${this.pagePool.length} remaining in pool).`);
+            return page;
+        }
+    }
+
+    logger.info('[Pool] No warm pages available, creating new tab...');
+    const page = await browser.newPage();
+    await this.optimizePage(page);
+    return page;
+  }
+
+  /**
+   * Cleans up and returns a page to the pool instead of closing it
+   */
+  public static async releasePage(page: Page) {
+    if (!page || page.isClosed()) return;
+
+    if (this.pagePool.length < this.MAX_POOL_SIZE) {
+        try {
+            // Quick cleanup to prevent state leakage
+            await page.evaluate(() => {
+                try {
+                    localStorage.clear();
+                    sessionStorage.clear();
+                } catch (e) {}
+            });
+            await page.goto('about:blank', { waitUntil: 'domcontentloaded', timeout: 5000 }).catch(() => {});
+            
+            this.pagePool.push(page);
+            logger.info(`[Pool] Page released back to pool (${this.pagePool.length}/${this.MAX_POOL_SIZE}).`);
+        } catch (e) {
+            logger.warn('Failed to release page to pool, closing instead.');
+            await page.close().catch(() => {});
+        }
+    } else {
+        await page.close().catch(() => {});
     }
   }
 
