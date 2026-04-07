@@ -8,6 +8,7 @@ const engineService = new EngineService();
 
 export class ScrapeController {
   static async handleScrapeRequest(req: Request, res: Response, next: NextFunction) {
+    const startTime = Date.now();
     try {
       const url = (req.query?.url as string) || (req.body?.url as string);
 
@@ -34,7 +35,8 @@ export class ScrapeController {
         return res.status(422).json({
           success: false,
           error: result.error || 'Failed to extract data',
-          layer: result.layer
+          layer: result.layer,
+          processed_time: (Date.now() - startTime) / 1000
         });
       }
 
@@ -44,7 +46,9 @@ export class ScrapeController {
         metadata: {
           layer: result.layer,
           is_cached: result.isCached || false,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          duration_ms: Date.now() - startTime,
+          processed_time: (Date.now() - startTime) / 1000
         }
       });
     } catch (error: any) {
