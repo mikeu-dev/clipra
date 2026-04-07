@@ -46,6 +46,10 @@ export class DownloadController {
 
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      
+      // Fix for 'NotSameOrigin' and CORS issues
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Access-Control-Allow-Origin', '*');
 
       // Forward other useful headers if they exist
       if (response.headers['content-length']) {
