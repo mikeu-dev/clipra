@@ -32,6 +32,9 @@ const swaggerDocs = swaggerJsdoc(swaggerOptions);
 const app: Express = express();
 const port = env.PORT;
 
+// Trust proxy (required for Vercel and express-rate-limit)
+app.set('trust proxy', 1);
+
 // Security Middleware
 app.use(helmet());
 app.use(cors());
