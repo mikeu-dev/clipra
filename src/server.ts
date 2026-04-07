@@ -87,27 +87,37 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   handleError(err, res);
 });
 
-// Start Server
-const server = app.listen(port, () => {
-  logger.info(`⚡️[server]: Clipra Scraper Engine is running at http://localhost:${port} in ${env.NODE_ENV} mode`);
-});
+let server: any;
 
-// Graceful Shutdown
-const gracefulShutdown = () => {
-  logger.info('Received shutdown signal. Closing server...');
-  server.close(() => {
-    logger.info('HTTP server closed.');
-    process.exit(0);
+// Start Server (Only if not on Vercel)
+if (!process.env.VERCEL) {
+  server = app.listen(port, () => {
+    logger.info(`⚡️[server]: Clipra Scraper Engine is running at http://localhost:${port} in ${env.NODE_ENV} mode`);
   });
+}
 
-  // Force close after 10s
-  setTimeout(() => {
-    logger.error('Could not close connections in time, forcefully shutting down');
-    process.exit(1);
-  }, 10000);
+// Graceful Shutdown (Only for non-serverless)
+const gracefulShutdown = () => {
+  if (server) {
+    logger.info('Received shutdown signal. Closing server...');
+    server.close(() => {
+      logger.info('HTTP server closed.');
+      process.exit(0);
+    });
+    
+    // Force close after 10s
+    setTimeout(() => {
+      logger.error('Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
 };
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+if (!process.env.VERCEL) {
+  process.on('SIGTERM', gracefulShutdown);
+  process.on('SIGINT', gracefulShutdown);
+}
 
 export default app;
