@@ -1,5 +1,6 @@
 import { StrategyResult, TiktokExtraction } from '../types';
 import { HtmlExtractor } from '../extractors/html.extractor';
+import { GraphqlExtractor } from '../extractors/graphql.extractor';
 import { ApiExtractor } from '../extractors/api.extractor';
 import { BrowserExtractor } from '../extractors/browser.extractor';
 import { cacheService } from '../utils/cache';
@@ -8,6 +9,7 @@ import logger from '../utils/logger';
 
 export class EngineService {
   private htmlExtractor: HtmlExtractor;
+  private graphqlExtractor: GraphqlExtractor;
   private apiExtractor: ApiExtractor;
   private browserExtractor: BrowserExtractor;
 
@@ -15,6 +17,7 @@ export class EngineService {
 
   constructor() {
     this.htmlExtractor = new HtmlExtractor();
+    this.graphqlExtractor = new GraphqlExtractor();
     this.apiExtractor = new ApiExtractor();
     this.browserExtractor = new BrowserExtractor();
   }
@@ -73,7 +76,7 @@ export class EngineService {
         const initialVideoId = Helpers.extractVideoId(url);
         
         if (initialVideoId) {
-          logger.info(`[Attempt ${attempt}] RACING: Layer 1 (HTML) & Layer 3 (API)...`);
+          logger.info(`[Attempt ${attempt}] RACING: Layer 1 (HTML), Layer 2 (GraphQL), & Layer 3 (API)...`);
           
           // Race with a hard timeout of 8s for the initial layers
           const raceTimeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Race Timeout')), 8000));
@@ -81,6 +84,7 @@ export class EngineService {
           const results = await Promise.race([
             Promise.allSettled([
                 this.htmlExtractor.extract(url),
+                this.graphqlExtractor.extract(url),
                 this.apiExtractor.extract(url)
             ]),
             raceTimeout as any
@@ -91,7 +95,11 @@ export class EngineService {
               for (let i = 0; i < results.length; i++) {
                 const res = results[i] as any;
                 if (res.status === 'fulfilled' && res.value.success && res.value.data && this.isValidExtraction(res.value.data, url)) {
-                  const layerName = i === 0 ? 'Layer 1 (HTML-Race)' : 'Layer 3 (API-Race)';
+                  let layerName = 'Unknown';
+                  if (i === 0) layerName = 'Layer 1 (HTML-Race)';
+                  else if (i === 1) layerName = 'Layer 2 (GraphQL-Race)';
+                  else if (i === 2) layerName = 'Layer 3 (API-Race)';
+                  
                   logger.info(`[Success] ${layerName} WON.`);
                   const finalResult: StrategyResult = { ...res.value, layer: layerName };
                   cacheService.set(cacheKey, finalResult);
