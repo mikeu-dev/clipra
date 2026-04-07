@@ -52,9 +52,15 @@ export class BrowserExtractor {
 
       // 4. Wait for content
       try {
-        await page.waitForSelector('video', { timeout: 15000 });
+        // If the URL contains /photo/, we don't necessarily expect a <video> element immediately
+        if (!url.includes('/photo/')) {
+          await page.waitForSelector('video', { timeout: 15000 });
+        } else {
+          // For photos, just wait for the hydration scripts
+          await page.waitForSelector('script[id="__UNIVERSAL_DATA_FOR_REHYDRATION__"]', { timeout: 10000 });
+        }
       } catch (e) {
-        logger.warn('Video selector timeout, attempting hydration anyway...');
+        logger.warn('Content selector timeout, attempting hydration anyway...');
       }
 
       // 5. Extract Data
@@ -67,29 +73,20 @@ export class BrowserExtractor {
         if (universalDataEl && universalDataEl.textContent) {
           try {
             const parsed = JSON.parse(universalDataEl.textContent);
-            const detailPath = '__DEFAULT_SCOPE__.webapp.video-detail.itemInfo.itemStruct';
-            const item = getVal(parsed, detailPath);
+            const defaultScope = parsed['__DEFAULT_SCOPE__'] || parsed;
+            const item = getVal(defaultScope, 'webapp.video-detail.itemInfo.itemStruct') || 
+                         getVal(defaultScope, 'webapp.photomode-detail.itemInfo.itemStruct');
             
             if (item) {
               if (item.video) {
                 return {
                   id: item.id || '',
-                  type: 'video' as const,
+                  type: item.imagePost ? ('image' as const) : ('video' as const),
                   video: item.video.playAddr || item.video.downloadAddr || '',
                   hdplay: item.video.playAddr || '',
                   wmplay: item.video.downloadAddr || '',
-                  cover: item.video.cover || '',
-                  caption: item.desc || '',
-                  author: item.author?.uniqueId || item.author?.nickname || '',
-                  music: item.music?.playUrl || ''
-                };
-              }
-              if (item.imagePost && item.imagePost.images) {
-                return {
-                  id: item.id || '',
-                  type: 'image' as const,
-                  images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
-                  cover: item.imagePost.cover?.displayAddr || item.video?.cover || '',
+                  images: item.imagePost?.images?.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+                  cover: item.video.cover || item.imagePost?.cover?.displayAddr || '',
                   caption: item.desc || '',
                   author: item.author?.uniqueId || item.author?.nickname || '',
                   music: item.music?.playUrl || ''
@@ -111,28 +108,21 @@ export class BrowserExtractor {
           try {
             const parsed = JSON.parse(rehydrationMatch[1]);
             const getVal = (obj: any, path: string) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
-            const item = getVal(parsed, '__DEFAULT_SCOPE__.webapp.video-detail.itemInfo.itemStruct');
+            const defaultScope = parsed['__DEFAULT_SCOPE__'] || parsed;
+            const item = getVal(defaultScope, 'webapp.video-detail.itemInfo.itemStruct') || 
+                         getVal(defaultScope, 'webapp.photomode-detail.itemInfo.itemStruct');
 
             if (item) {
               logger.info('Regex fallback successful for UNIVERSAL_DATA');
               if (item.video) {
                 extractedData = {
                   id: item.id || '',
-                  type: 'video' as const,
+                  type: item.imagePost ? ('image' as const) : ('video' as const),
                   video: item.video.playAddr || item.video.downloadAddr || '',
                   hdplay: item.video.playAddr || '',
                   wmplay: item.video.downloadAddr || '',
-                  cover: item.video.cover || '',
-                  caption: item.desc || '',
-                  author: item.author?.uniqueId || item.author?.nickname || '',
-                  music: item.music?.playUrl || ''
-                };
-              } else if (item.imagePost && item.imagePost.images) {
-                extractedData = {
-                  id: item.id || '',
-                  type: 'image' as const,
-                  images: item.imagePost.images.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
-                  cover: item.imagePost.cover?.displayAddr || item.video?.cover || '',
+                  images: item.imagePost?.images?.map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+                  cover: item.video.cover || item.imagePost?.cover?.displayAddr || '',
                   caption: item.desc || '',
                   author: item.author?.uniqueId || item.author?.nickname || '',
                   music: item.music?.playUrl || ''

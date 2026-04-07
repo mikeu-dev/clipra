@@ -41,10 +41,10 @@ export class Helpers {
    * Mengekstrak Video ID dari URL panjang TikTok
    */
   public static extractVideoId(url: string): string | null {
-    // Mencari format video/123456789...
-    const match = url.match(/\/video\/(\d+)/);
-    if (match && match[1]) {
-      return match[1];
+    // Mencari format video/123456789... atau photo/123456789...
+    const match = url.match(/\/(video|photo)\/(\d+)/);
+    if (match && match[2]) {
+      return match[2];
     }
     return null;
   }

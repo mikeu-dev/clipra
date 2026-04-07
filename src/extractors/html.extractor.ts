@@ -147,6 +147,25 @@ export class HtmlExtractor {
           music: itemInfo.music?.playUrl || ''
         };
       }
+
+      // Final Fallback for Photo Mode (Check multiple potential JSON paths)
+      const photoModule = defaultScope['webapp.photomode-detail'] || defaultScope['webapp.video-detail'] || {};
+      const photoItem = photoModule.itemInfo?.itemStruct || {};
+      
+      if (photoItem.imagePost || photoItem.images) {
+         return {
+          id: photoItem.id || '',
+          type: 'image',
+          images: (photoItem.imagePost?.images || photoItem.images || []).map((img: any) => img.displayAddr || img.urlList?.[0] || ''),
+          video: photoItem.video?.playAddr || photoItem.video?.downloadAddr || '',
+          hdplay: photoItem.video?.playAddr || '',
+          wmplay: photoItem.video?.downloadAddr || '',
+          cover: photoItem.imagePost?.cover?.displayAddr || photoItem.video?.cover || '',
+          caption: photoItem.desc || '',
+          author: photoItem.author?.uniqueId || photoItem.author || '',
+          music: photoItem.music?.playUrl || ''
+        };
+      }
       
       return null;
     } catch (e) {

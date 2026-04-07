@@ -51,21 +51,37 @@ export class ApiExtractor {
         const item = awemeList[0];
         
         // Helper to find the best video from bit_rate (important for slideshows which often have a black placeholder as default)
-        const getBestVideo = (videoObj: any) => {
+        const getBestVideo = (videoObj: any, isPhoto: boolean) => {
           if (!videoObj) return '';
+          
           if (videoObj.bit_rate && videoObj.bit_rate.length > 0) {
-            // Sort by data_size descending to find the actual rendered slideshow
-            const sorted = [...videoObj.bit_rate].sort((a, b) => (b.play_addr?.data_size || 0) - (a.play_addr?.data_size || 0));
-            // Find the first one with a valid URL
-            for (const br of sorted) {
-              const url = br.play_addr?.url_list?.[0];
-              if (url && !url.includes('placeholder')) return url;
+            logger.info(`[API] Found ${videoObj.bit_rate.length} video variants in bit_rate.`);
+            
+            // Filter and Sort: Look for non-placeholder videos with actual content size
+            const validVariants = videoObj.bit_rate.filter((br: any) => {
+              const url = br.play_addr?.url_list?.[0] || '';
+              const size = br.play_addr?.data_size || 0;
+              // Slideshows usually have a reasonable data_size. Placeholders are tiny or 0.
+              return url && !url.includes('placeholder') && size > 30000; // > 30KB is a safe bet for a real slideshow
+            });
+
+            if (validVariants.length > 0) {
+              const best = validVariants.sort((a: any, b: any) => (b.play_addr?.data_size || 0) - (a.play_addr?.data_size || 0))[0];
+              const bestUrl = best.play_addr?.url_list?.[0];
+              logger.info(`[API] Selected Best Video Variant (${Math.round(best.play_addr?.data_size / 1024)} KB): ${bestUrl.substring(0, 50)}...`);
+              return bestUrl;
             }
           }
-          return videoObj.play_addr?.url_list?.[0] || videoObj.download_addr?.url_list?.[0] || '';
+          
+          const defaultUrl = videoObj.play_addr?.url_list?.[0] || videoObj.download_addr?.url_list?.[0] || '';
+          if (isPhoto) {
+             logger.warn(`[API] No clear slideshow found in bit_rate. Falling back to default: ${defaultUrl.substring(0, 50)}...`);
+          }
+          return defaultUrl;
         };
 
-        const bestVideoUrl = getBestVideo(item.video);
+        const isPhoto = !!(item.image_post_info && item.image_post_info.images);
+        const bestVideoUrl = getBestVideo(item.video, isPhoto);
 
         // Handle image_post_info if exists (Slideshow)
         if (item.image_post_info && item.image_post_info.images) {
