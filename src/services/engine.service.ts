@@ -36,8 +36,8 @@ export class EngineService {
 
     while (attempt <= retryCount) {
       if (attempt > 0) {
-        const delay = Math.pow(2, attempt) * 1000;
-        logger.info(`[Retry ${attempt}/${retryCount}] Waiting ${delay}ms before next attempt for ${url}...`);
+        const delay = 1500; // Linear short delay for faster retries
+        logger.info(`[Retry ${attempt}/${retryCount}] Waiting ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
@@ -46,28 +46,36 @@ export class EngineService {
         const initialVideoId = Helpers.extractVideoId(url);
         
         if (initialVideoId) {
-          logger.info(`[Attempt ${attempt}] Video ID detected. Racing Layer 1 (HTML) & Layer 3 (API) in parallel...`);
+          logger.info(`[Attempt ${attempt}] RACING: Layer 1 (HTML) & Layer 3 (API)...`);
           
-          // Racing both methods to see which one is faster
-          const results = await Promise.allSettled([
-            this.htmlExtractor.extract(url),
-            this.apiExtractor.extract(url)
+          // Race with a hard timeout of 8s for the initial layers
+          const raceTimeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Race Timeout')), 8000));
+          
+          const results = await Promise.race([
+            Promise.allSettled([
+                this.htmlExtractor.extract(url),
+                this.apiExtractor.extract(url)
+            ]),
+            raceTimeout as any
           ]);
 
-          // Find the first successful and valid result
-          for (let i = 0; i < results.length; i++) {
-            const res = results[i];
-            if (res.status === 'fulfilled' && res.value.success && res.value.data && this.isValidExtraction(res.value.data, url)) {
-              const layerName = i === 0 ? 'Layer 1 (HTML-Race)' : 'Layer 3 (API-Race)';
-              logger.info(`[Success] ${layerName} won the race.`);
-              const finalResult: StrategyResult = { ...res.value, layer: layerName };
-              cacheService.set(cacheKey, finalResult);
-              return finalResult;
-            }
+          // Process settled results
+          if (Array.isArray(results)) {
+              for (let i = 0; i < results.length; i++) {
+                const res = results[i] as any;
+                if (res.status === 'fulfilled' && res.value.success && res.value.data && this.isValidExtraction(res.value.data, url)) {
+                  const layerName = i === 0 ? 'Layer 1 (HTML-Race)' : 'Layer 3 (API-Race)';
+                  logger.info(`[Success] ${layerName} WON.`);
+                  const finalResult: StrategyResult = { ...res.value, layer: layerName };
+                  cacheService.set(cacheKey, finalResult);
+                  return finalResult;
+                }
+              }
           }
           
-          logger.warn(`[Attempt ${attempt}] Both Parallel Layers failed. Proceeding to fallback logic.`);
-        } else {
+          logger.warn(`[Attempt ${attempt}] Race failed or timed out. Falling back...`);
+        }
+ else {
           // If no initial video ID, we must go sequential or expand URL first
           // Strategy 1: Fast HTTP + HTML/Hydration Extraction
           logger.info(`[Attempt ${attempt}] Layer 1 (HTTP/Hydration) started...`);

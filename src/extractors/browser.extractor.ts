@@ -79,19 +79,24 @@ export class BrowserExtractor {
             }
         });
 
-        // Wait up to 12s or until we get the URL
-        logger.info('[Browser] Monitoring network for MP4 link...');
-        for(let i=0; i<12; i++) {
-            if (capturedVideoUrl) break;
-            
-            // Check for captcha mid-wait
-            const hasCaptcha = await page.evaluate(() => !!document.querySelector('#captcha_container') || document.body.innerText.includes('Verify to continue'));
-            if (hasCaptcha) {
-                logger.warn('[Browser] CAPTCHA detected during wait loop!');
+        // Wait up to 8s or until we get the URL (Reduced from 12s for speed)
+        logger.info('[Browser] MONITORING: Looking for MP4 link...');
+        for(let i=0; i<16; i++) {
+            if (capturedVideoUrl) {
+                logger.info('[Browser] SUCCESS: Captured video URL via network.');
                 break;
             }
             
-            await new Promise(r => setTimeout(r, 1000));
+            // Check for captcha mid-wait
+            if (i % 2 === 0) {
+                const hasCaptcha = await page.evaluate(() => !!document.querySelector('#captcha_container') || document.body.innerText.includes('Verify to continue'));
+                if (hasCaptcha) {
+                    logger.warn('[Browser] ABORT: CAPTCHA detected!');
+                    break;
+                }
+            }
+            
+            await new Promise(r => setTimeout(r, 500)); // Check every 500ms instead of 1000ms
         }
         
       } catch (e: any) {
