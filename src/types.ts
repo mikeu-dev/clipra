@@ -12,12 +12,14 @@ export interface TiktokExtraction {
     nickname: string;
     uniqueId: string;
   };
+  userAgent?: string;
 }
 
 export interface ExtractionResult {
   success: boolean;
   data?: TiktokExtraction;
   error?: string;
+  userAgent?: string;
 }
 
 export interface StrategyResult extends ExtractionResult {

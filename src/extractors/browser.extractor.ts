@@ -30,8 +30,9 @@ export class BrowserExtractor {
       await page.evaluate(() => window.scrollBy(0, 300));
       await new Promise(r => setTimeout(r, 1000));
 
-      // 2. Capture session
-      await SessionProvider.captureFromPage(page);
+      // 2. Capture session and User-Agent
+      const session = await SessionProvider.captureFromPage(page);
+      const userAgent = session?.userAgent || await page.evaluate(() => navigator.userAgent);
 
       // 3. Check for "Unavailable" or "Captcha" state
       const pageStatus = await page.evaluate(() => {
@@ -197,7 +198,10 @@ export class BrowserExtractor {
         return { success: false, error: 'Could not extract data via browser automation fallbacks.' };
       }
 
-      return { success: true, data: extractedData };
+      if (extractedData) {
+        extractedData.userAgent = userAgent;
+      }
+      return { success: true, data: extractedData || undefined, userAgent: userAgent };
 
     } catch (e: any) {
       logger.error(`Browser Extraction Error: ${e.message}`);

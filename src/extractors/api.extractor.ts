@@ -61,7 +61,8 @@ export class ApiExtractor {
               cover: item.video?.cover?.url_list?.[0] || '',
               caption: item.desc || '',
               author: item.author?.nickname || item.author?.unique_id || '',
-              music: item.music?.play_url?.url_list?.[0] || ''
+              music: item.music?.play_url?.url_list?.[0] || '',
+              userAgent: headers['User-Agent']
             }
           };
         }
@@ -77,7 +78,8 @@ export class ApiExtractor {
             cover: item.video?.cover?.url_list?.[0] || '',
             caption: item.desc || '',
             author: item.author?.nickname || item.author?.unique_id || '',
-            music: item.music?.play_url?.url_list?.[0] || ''
+            music: item.music?.play_url?.url_list?.[0] || '',
+            userAgent: headers['User-Agent']
           }
         };
       }

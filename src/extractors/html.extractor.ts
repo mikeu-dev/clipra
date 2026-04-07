@@ -23,13 +23,15 @@ export class HtmlExtractor {
       // Strategy 1: Look for SIGI_STATE
       const sigiStateData = this.parseSigiState($);
       if (sigiStateData) {
-        return { success: true, data: sigiStateData };
+        sigiStateData.userAgent = String(response.config.headers['User-Agent']);
+        return { success: true, data: sigiStateData, userAgent: sigiStateData.userAgent };
       }
 
       // Strategy 2: Look for Universal Data Rehydration (Newer format)
       const universalData = this.parseUniversalData($);
       if (universalData) {
-        return { success: true, data: universalData };
+        universalData.userAgent = String(response.config.headers['User-Agent']);
+        return { success: true, data: universalData, userAgent: universalData.userAgent };
       }
       
       return { success: false, error: 'Could not find Sigi State or Universal Data' };

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
 import logger from '../utils/logger';
+import { HttpClient } from '../providers/httpClient';
+import { SessionProvider } from '../providers/sessionProvider';
 
 export class DownloadController {
   /**
@@ -10,6 +12,7 @@ export class DownloadController {
   static async handleDownload(req: Request, res: Response) {
     const url = req.query.url as string;
     const type = (req.query.type as string || 'MP4').toUpperCase();
+    const ua = req.query.ua as string;
 
     if (!url) {
       return res.status(400).json({ success: false, error: 'URL parameter is required' });
@@ -18,16 +21,21 @@ export class DownloadController {
     try {
       logger.info(`[Download Proxy] Fetching: ${url}`);
 
-      // Use a fresh instance to avoid "browser-like" scraping headers that might trigger 403
+      // Prepare headers with the SAME UA used during scraping and Session Cookies
+      const headers: any = {
+        'User-Agent': ua || HttpClient.DEFAULT_UA,
+        'Referer': 'https://www.tiktok.com/',
+        'Accept': '*/*',
+        'Range': 'bytes=0-', // Help bypass some CDN restrictions for media
+      };
+
+      // Inject the same cookies used during the scraping phase
+      SessionProvider.applyToHeaders(headers);
+
       const response = await axios.get(url, {
         responseType: 'stream',
         timeout: 20000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-          'Referer': 'https://www.tiktok.com/',
-          'Accept': '*/*',
-          'Range': 'bytes=0-', // Help bypass some CDN restrictions for media
-        }
+        headers: headers
       });
 
       // Forward content type or default based on type param
